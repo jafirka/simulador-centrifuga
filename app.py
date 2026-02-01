@@ -639,9 +639,9 @@ with col_concl2:
     st.write("### 📊 Cumplimiento de Norma (ISO 10816)")
     
     # Extraemos los picos máximos de velocidad
-    v_max_base = max(S_vel[vertical])
-    v_max_prop = max(S_vel_prop[vertical])
-    
+    v_max_base = max(max(S_vel["x"]), max(S_vel["y"]), max(S_vel["z"]))
+    v_max_prop = max(max(S_vel_prop["x"]), max(S_vel_prop["y"]), max(S_vel_prop["z"]))
+        
     # Mostramos ambos valores para el reporte
     st.write(f"**Velocidad Máx. Base:** {v_max_base:.2f} mm/s")
     st.write(f"**Velocidad Máx. Propuesta:** {v_max_prop:.2f} mm/s")
@@ -695,3 +695,4 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+

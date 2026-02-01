@@ -644,7 +644,7 @@ with col_concl2:
         
     # Mostramos ambos valores para el reporte
     st.write(f"**Velocidad Máx. Base:** {v_max_base:.2f} mm/s")
-    st.write(f"**Velocidad Máx. Propuesta:** {v_max_prop:.2f} mm/s")
+    st.write(f"**Velocidad Máx Propuesta:** {v_max_prop:.2f} mm/s")
     
     # Evaluación de severidad para la Propuesta
     # Definimos los umbrales de la norma
@@ -695,4 +695,5 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 

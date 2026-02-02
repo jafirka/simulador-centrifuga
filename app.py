@@ -222,7 +222,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
 import copy
 # --- 3. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
-st.title("Simulador Interactivo de Centrífuga 300F1600 x 700")
+st.title("Simulador Interactivo de Centrífuga 300F1600 x 700 BY Engineering departmen")
 st.markdown("Modifica los valores en la barra lateral para ver el impacto en las vibraciones.")
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
@@ -695,5 +695,6 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 

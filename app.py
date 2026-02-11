@@ -233,6 +233,15 @@ st.sidebar.text("Espesor de placa: 100 [mm]")
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
+# --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
+st.sidebar.subheader("Posición del Sensor (m)")
+col_s1, col_s2, col_s3 = st.sidebar.columns(3)
+with col_s1:
+    sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
+with col_s2:
+    sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
+with col_s3:
+    sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
 # --- Definir ejes de referencia ---
 
@@ -695,6 +704,7 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 
 

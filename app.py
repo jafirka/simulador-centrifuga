@@ -235,6 +235,7 @@ m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
 st.sidebar.subheader("Posición del Sensor (m)")
+st.sidebar.text("Ubicacion estandar x=0; y=0.8; z=0")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
 with col_s1:
     sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
@@ -705,6 +706,7 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 
 

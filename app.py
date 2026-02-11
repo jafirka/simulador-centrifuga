@@ -305,7 +305,8 @@ config_base = {
         {"tipo": "ZPVL-235-453", "pos": [-0.93, -0.84, 0]}
     ],
     "sensor": {
-        "pos_sensor": [0, 0.8, 0]       # Ubicación del sensor de velocidad
+		"pos_sensor": [sensor_x, sensor_y, sensor_z]
+        #"pos_sensor": [0, 0.8, 0]       # Ubicación del sensor de velocidad
     }
 }
 
@@ -704,6 +705,7 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 
 

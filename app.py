@@ -274,16 +274,12 @@ with col_p2:
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración Avanzada del Sistema")
 
-# ✅ SOLUCIÓN AL ERROR: Inicializar el diccionario antes de usarlo en los bucles
-config_base = {
-    "componentes": {},
-    "dampers": [],
-    "tipos_dampers": {}
-}
+# 1️⃣ INICIALIZACIÓN DE CONTENEDORES
+# Importante: comp_editados debe existir antes del bucle de componentes
+comp_editados = {} 
 
 # Pestañas principales
 tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
-
 
 with tab_comp:
     subtabs = st.tabs(["Bancada", "Motor", "Cesto"])
@@ -297,34 +293,40 @@ with tab_comp:
         with subtab:
             c_m, c_p = st.columns([1, 2])
             with c_m:
-                m = st.number_input(f"Masa {nombre} (kg)", value=def_pos[0], key=f"m_{nombre}")
+                m_val = st.number_input(f"Masa {nombre} (kg)", value=def_pos[0], key=f"m_{nombre}")
             with c_p:
                 cx, cy, cz = st.columns(3)
                 px = cx.number_input(f"X [m]", value=def_pos[1], key=f"px_{nombre}")
                 py = cy.number_input(f"Y [m]", value=def_pos[2], key=f"py_{nombre}")
                 pz = cz.number_input(f"Z [m]", value=def_pos[3], key=f"pz_{nombre}")
 
-            st.write(f"**Matriz de Inercia/Masa 6x6 para {nombre}**")
-            # Inicializamos matriz 6x6. Los términos de inercia suelen ir en el bloque inferior derecho (3:6, 3:6)
-            m_6x6 = np.zeros((6, 6))
-            np.fill_diagonal(m_6x6[3:6, 3:6], def_iner) # Inercias rotacionales
-            np.fill_diagonal(m_6x6[0:3, 0:3], m)        # Masas traslacionales
+            st.write(f"**Matriz de Masa/Inercia 6x6 para {nombre}**")
             
+            # Construcción de la matriz 6x6 inicial
+            m_6x6 = np.zeros((6, 6))
+            np.fill_diagonal(m_6x6[0:3, 0:3], m_val) # Masa en los 3 primeros GL
+            np.fill_diagonal(m_6x6[3:6, 3:6], def_iner) # Inercia en los 3 últimos GL
+            
+            # Editor de matriz
             df_iner_6x6 = st.data_editor(
                 m_6x6,
                 key=f"matrix_6x6_{nombre}",
                 use_container_width=True,
                 column_config={str(i): f"GL {i+1}" for i in range(6)}
             )
-            # Guardamos la submatriz de inercia 3x3 para el simulador estándar o la 6x6 según requieras
-            comp_editados[nombre] = {"m": m, "pos": [px, py, pz], "I": df_iner_6x6[3:6, 3:6]}
+            
+            # Guardamos los datos procesados (usamos la matriz editada para la inercia 3x3)
+            comp_editados[nombre] = {
+                "m": m_val, 
+                "pos": [px, py, pz], 
+                "I": df_iner_6x6[3:6, 3:6] # Extraemos la submatriz de inercia
+            }
 
-# 2️⃣ GESTIÓN DE DAMPERS (Tabla de Posiciones y Matrices 6x6)
+# 2️⃣ GESTIÓN DE DAMPERS
 dampers_finales = []
 with tab_dampers:
     st.write("**Editor de Apoyos Elásticos (Dampers)**")
     
-    # Tabla para posiciones y selección de matriz
     dampers_init = [
         {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
         {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
@@ -355,22 +357,22 @@ with tab_dampers:
         np.fill_diagonal(k_ref2, [1.0e6, 1.0e6, 1.3e6, 0, 0, 0])
         mat_k2 = st.data_editor(k_ref2, key="mat_k2", use_container_width=True)
 
-    # Procesar dampers para config_base
+    # Procesar dampers usando los datos del editor
     for _, row in df_dampers_pos.iterrows():
-        # Asignamos la matriz elegida según el "Tipo"
         k_asignada = mat_k1 if row["Tipo"] == "Ref_1" else mat_k2
         dampers_finales.append({
             "nombre": row["Nombre"],
             "pos": [row["X"], row["Y"], row["Z"]],
             "K_matrix": k_asignada,
-            # Para mantener compatibilidad con Damper class, extraemos la diagonal como kx, ky, kz
             "kx": k_asignada[0,0], "ky": k_asignada[1,1], "kz": k_asignada[2,2],
-            "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4 # Amortiguamiento (se podría hacer igual en 6x6)
+            "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4 
         })
 
 st.divider()
 
-# 3️⃣ ACTUALIZACIÓN DE CONFIG_BASE
+# 3️⃣ ENSAMBLAJE FINAL DE CONFIG_BASE
+# ✅ CAMBIO CRÍTICO: Definimos el diccionario completo aquí, 
+# integrando las listas y diccionarios que llenamos arriba.
 config_base = {
     "eje_vertical": eje_vertical, 
     "plano_rotor": plano_rotor,
@@ -383,12 +385,11 @@ config_base = {
         "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, "radio_agujero": 0.5,
         "dist_A": dist_A, "dist_B": dist_B
     },
-    "componentes": comp_editados,
-    "dampers": dampers_finales,
+    "componentes": comp_editados, # Contiene Bancada, Motor, Cesto
+    "dampers": dampers_finales,    # Contiene la lista de la tabla dinámica
     "sensor": {
         "pos_sensor": [sensor_x, sensor_y, sensor_z]
     },
-    # Mapeo de tipos para compatibilidad si fuera necesario
     "tipos_dampers": {
         "Ref_1": {"kx": mat_k1[0,0], "ky": mat_k1[1,1], "kz": mat_k1[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
         "Ref_2": {"kx": mat_k2[0,0], "ky": mat_k2[1,1], "kz": mat_k2[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}

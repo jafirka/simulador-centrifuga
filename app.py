@@ -217,8 +217,16 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
           S_vel[eje].append(w * np.abs(U_sensor[i]) * 1000)
           # aceleración [g]
           S_acel[eje].append((w**2) * np.abs(U_sensor[i])/9.81)
-
-    return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel
+    
+    # Organizar los resultados en un diccionario para mayor claridad
+    resultados = {
+        "rpm_range": rpm_range,
+        "damper": {"desplazamiento": D_desp, "fuerza": D_fuerza},
+        "cg": {"aceleracion": acel_cg, "velocidad": vel_cg},
+        "sensor": {"desplazamiento": S_desp, "velocidad": S_vel, "aceleracion": S_acel}
+        }
+    return resultados
+    #return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel
 
 
 
@@ -381,13 +389,13 @@ ejes_lbl = {horizontales[0]: "Horizontal 1", horizontales[1]: "Horizontal 2", ve
 rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
 idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
 
-rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
-rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
-
-
-
-
-
+#rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
+#rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
+# Ejecutamos la simulación para el modelo base y el propuesto
+resultados_base = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
+resultados_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
+# Extraemos el rango de RPM (es el mismo para ambos)
+rpm_range = resultados_base["rpm_range"]
 
 
 # ==========================================

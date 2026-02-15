@@ -50,13 +50,26 @@ class Damper:
         self.cx, self.cy, self.cz = cx, cy, cz
 
     def get_matriz_T(self, cg):
+        # Vector distancia desde el CG global al damper
         d = self.pos - np.array(cg)
         lx, ly, lz = d
-        return np.array([
-            [1, 0, 0, 0,  lz, -ly],
-            [0, 1, 0, -lz, 0,  lx],
-            [0, 0, 1,  ly, -lx, 0]
+        
+        # Matriz Identidad 3x3 para las traslaciones
+        I3 = np.eye(3)
+        
+        # Matriz del producto vectorial (Cross-product matrix) para las rotaciones
+        # Representa: r x theta
+        # [  0   lz  -ly ]
+        # [ -lz   0   lx ]
+        # [  ly  -lx   0 ]
+        R3 = np.array([
+            [0,   lz, -ly],
+            [-lz,  0,  lx],
+            [ly, -lx,  0]
         ])
+    
+    # Concatenamos horizontalmente para formar la matriz 3x6
+    return np.hstack((I3, R3))
 
     def get_matriz_K(self): return np.diag([self.kx, self.ky, self.kz])
     def get_matriz_C(self): return np.diag([self.cx, self.cy, self.cz])
@@ -156,11 +169,20 @@ class SimuladorCentrifuga:
         cg_global = sum(c["m"] * np.array(c["pos"]) for c in self.componentes.values()) / m_total
 
         M, I_global = np.zeros((6, 6)), np.zeros((3, 3))
+        
         for c in self.componentes.values():
-            I_local = np.diag(c["I"]) if isinstance(c["I"], list) else c["I"]
-            d = np.array(c["pos"]) - cg_global
-            I_st = I_local + c["m"] * (np.dot(d, d) * np.eye(3) - np.outer(d, d))
-            I_global += I_st
+            m_c = c["m"]
+            p_c = np.array(c["pos"])
+            # Inercia local (convertir a matriz 3x3 si es lista)
+            I_local = np.diag(c["I"]) if isinstance(c["I"], list) else np.array(c["I"])
+        
+            # Vector desde el CG global al CG del componente
+            d = p_c - cg_global
+        
+            # Teorema de Steiner (Ejes Paralelos) en forma matricial
+            # I_global = sum( I_local + m * [ (d·d)diag(1) - (d ⊗ d) ] )
+            term_steiner = m_c * (np.dot(d, d) * np.eye(3) - np.outer(d, d))
+            I_global += (I_local + term_steiner)
 
         M[0:3, 0:3], M[3:6, 3:6] = np.eye(3) * m_total, I_global
         K, C = np.zeros((6, 6)), np.zeros((6, 6))

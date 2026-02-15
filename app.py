@@ -50,26 +50,13 @@ class Damper:
         self.cx, self.cy, self.cz = cx, cy, cz
 
     def get_matriz_T(self, cg):
-        # Vector distancia desde el CG global al damper
         d = self.pos - np.array(cg)
         lx, ly, lz = d
-        
-        # Matriz Identidad 3x3 para las traslaciones
-        I3 = np.eye(3)
-        
-        # Matriz del producto vectorial (Cross-product matrix) para las rotaciones
-        # Representa: r x theta
-        # [  0   lz  -ly ]
-        # [ -lz   0   lx ]
-        # [  ly  -lx   0 ]
-        R3 = np.array([
-            [0,   lz, -ly],
-            [-lz,  0,  lx],
-            [ly, -lx,  0]
+        return np.array([
+            [1, 0, 0, 0,  lz, -ly],
+            [0, 1, 0, -lz, 0,  lx],
+            [0, 0, 1,  ly, -lx, 0]
         ])
-    
-    # Concatenamos horizontalmente para formar la matriz 3x6
-    return np.hstack((I3, R3))
 
     def get_matriz_K(self): return np.diag([self.kx, self.ky, self.kz])
     def get_matriz_C(self): return np.diag([self.cx, self.cy, self.cz])

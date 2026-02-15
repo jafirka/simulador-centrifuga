@@ -96,9 +96,19 @@ class SimuladorCentrifuga:
         # --- Dampers ---
         self.dampers = []
         for d_conf in config['dampers']:
-            tipo_nombre = d_conf['tipo']
-            tipo_vals = config['tipos_dampers'][tipo_nombre]
-            self.dampers.append(Damper(tipo_nombre, d_conf['pos'], **tipo_vals))
+            nombre_instancia = d_conf.get('nombre', 'unnamed')
+            
+            # Buscamos las propiedades (kx, ky, etc.)
+            # Prioridad 1: Que ya vengan en el diccionario del damper
+            # Prioridad 2: Buscarlas en tipos_dampers usando el campo 'tipo'
+            if 'kx' in d_conf:
+                self.dampers.append(Damper(nombre_instancia, d_conf['pos'], 
+                                           d_conf['kx'], d_conf['ky'], d_conf['kz'], 
+                                           d_conf['cx'], d_conf['cy'], d_conf['cz']))
+            else:
+                tipo_nombre = d_conf['tipo']
+                tipo_vals = config['tipos_dampers'][tipo_nombre]
+                self.dampers.append(Damper(tipo_nombre, d_conf['pos'], **tipo_vals))
 
     def obtener_matriz_sensor(self, cg_global):
         r_p = self.pos_sensor - cg_global
@@ -407,7 +417,8 @@ config_base = {
     "componentes": comp_editados,
     "dampers": dampers_finales,
     "sensor": {"pos_sensor": [sensor_x, sensor_y, sensor_z]},
-    "tipos_dampers": df_prop.to_dict('index') # Reemplaza a las variables mat_k1/k2
+    # Mapeo de seguridad para evitar KeyErrors
+    "tipos_dampers": df_prop.to_dict('index')
 
 }
 

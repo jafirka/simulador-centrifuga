@@ -416,18 +416,17 @@ with col_map1:
     # --- Dibujar la placa dinámicamente (Proyección XY) ---
     # Se usan las dimensiones principales de la placa (lado_a, lado_b) para la visualización,
     # y su posición se proyecta en el plano XY para el layout.
-    placa_l_a = config_base["placa"]["lado_a"]
-    placa_l_b = config_base["placa"]["lado_b"]
-    
-    # Obtenemos la posición XY del centro de la placa desde el modelo ya calculado
     placa_pos_xy = modelo_base.componentes["placa"]["pos"][:2]
+    placa_ancho_x = modelo_base.dims['x']  # Dimensión real en X
+    placa_alto_y = modelo_base.dims['y']   # Dimensión real en Y
+    
     
     # Calculamos la esquina inferior-izquierda para anclar el rectángulo
-    anclaje_rect = (placa_pos_xy[0] - placa_l_a / 2, placa_pos_xy[1] - placa_l_b / 2)
+    anclaje_rect = (placa_pos_xy[0] - placa_ancho_x / 2, placa_pos_xy[1] - placa_alto_y / 2)
     
     # Creamos y añadimos el rectángulo que representa la placa
-    rect = plt.Rectangle(anclaje_rect, placa_l_a, placa_l_b, 
-                         color='lightgray', alpha=0.3, label='Placa Base')
+    rect = plt.Rectangle(anclaje_rect, placa_ancho_x, placa_alto_y, 
+    color='lightgray', alpha=0.3, label='Placa Base')
     ax_map.add_patch(rect)
     
     # Dibujar dampers
@@ -452,7 +451,8 @@ with col_map1:
     ax_map.axhline(0, color='black', lw=1); ax_map.axvline(0, color='black', lw=1)
     ax_map.axvline(0, color='black', lw=0.8, ls='--')
     ax_map.set_xlim(-2, 2); ax_map.set_ylim(-2, 2)
-    ax_map.set_xlabel("X [m]"); ax_map.set_ylabel("Y [m]")
+    ax_map.set_xlabel(f"{plano_rotor[0].upper()} [m]")
+    ax_map.set_ylabel(f"{plano_rotor[1].upper()} [m]")
     ax_map.grid(True, alpha=0.2)
     st.pyplot(fig_map)
 

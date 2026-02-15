@@ -284,7 +284,7 @@ with col_p2:
 
 
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
-st.header("🧱 Configuración Avanzada del Sistema")
+st.header("🧱 Configuración del Sistema")
 
 # Contenedor para los datos procesados en los tabs
 comp_editados = {} 
@@ -293,7 +293,9 @@ tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Con
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3)
 with tab_comp:
-    subtabs = st.tabs(["Bancada", "Motor", "Cesto"])
+    subtabs = st.tabs(["Bancada", "Accionamiento", "Cesto", "Placa inercia"])
+
+# 1. Mantenemos el bucle para los componentes estándar (Bancada, Motor, Cesto)
     componentes_lista = [
         ("bancada", subtabs[0], [3542.0, 0.194, 0.0, 0.859], [3235.0, 3690.0, 2779.0]),
         ("motor", subtabs[1], [940.0, 1.6, 0.0, 1.1], [178.0, 392.0, 312.0]),
@@ -330,6 +332,29 @@ with tab_comp:
                 "pos": [px, py, pz], 
                 "I": df_iner_3x3  # Matriz 3x3 completa
             }
+
+# 2. ✅ NUEVA SUBTAB: Datos de la Placa de Inercia
+    with subtabs[3]:
+        st.write("### Parámetros Geométricos de la Placa")
+        col_g1, col_g2 = st.columns(2)
+        
+        with col_g1:
+            lado_a = st.number_input("Lado A [m]", value=2.4, step=0.1, format="%.2f")
+            lado_b = st.number_input("Lado B [m]", value=2.4, step=0.1, format="%.2f")
+        
+        with col_g2:
+            espesor = st.number_input("Espesor [m]", value=0.1, step=0.01, format="%.3f")
+            radio_agujero = st.number_input("Radio Agujero Central [m]", value=0.5, step=0.05, format="%.2f")
+
+        st.write("### Posición del Centro de la Placa")
+        col_p1, col_p2 = st.columns(2)
+        # Usamos los nombres dist_A y dist_B que ya tenías en tu lógica
+        with col_p1:
+            dist_A = st.number_input(f"Desfase en {horizontales[0].upper()} (dist_A)", value=0.0, step=0.1)
+        with col_p2:
+            dist_B = st.number_input(f"Desfase en {horizontales[1].upper()} (dist_B)", value=0.0, step=0.1)
+
+        # Estos valores se guardarán luego en config_base["placa"]
 
 # 2️⃣ GESTIÓN DE DAMPERS
 dampers_finales = []

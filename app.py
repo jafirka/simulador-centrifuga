@@ -321,42 +321,70 @@ with tab_comp:
                 "I": df_iner_3x3  # Matriz 3x3 completa
             }
 
-# 2️⃣ GESTIÓN DE DAMPERS (Mantenemos 6x6 para flexibilidad de rigidez)
+# 2️⃣ GESTIÓN DE DAMPERS
 dampers_finales = []
 with tab_dampers:
-    st.write("**Editor de Apoyos Elásticos (Dampers)**")
+    st.write("### 1. Definición de Propiedades por Tipo")
+    st.info("Define aquí la Rigidez (K) y el Amortiguamiento (C) para los dos tipos de soporte.")
+
+    # Diccionario inicial con los dos tipos
+    propiedades_init = [
+        {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
+        {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
+    ]
     
-    dampers_init = [
+    # Tabla compacta para K y C
+    df_propiedades = st.data_editor(
+        propiedades_init,
+        key="editor_propiedades_dampers",
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Tipo": st.column_config.Column(disabled=True), # No dejamos cambiar el nombre del tipo
+            "kx": st.column_config.NumberColumn("Kx [N/m]"),
+            "ky": st.column_config.NumberColumn("Ky [N/m]"),
+            "kz": st.column_config.NumberColumn("Kz [N/m]"),
+            "cx": st.column_config.NumberColumn("Cx [Ns/m]"),
+            "cy": st.column_config.NumberColumn("Cy [Ns/m]"),
+            "cz": st.column_config.NumberColumn("Cz [Ns/m]"),
+        }
+    )
+
+    st.write("### 2. Ubicación de los Dampers")
+    dampers_pos_init = [
         {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
         {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
         {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
         {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
     ]
     
-    df_dampers_pos = st.data_editor(dampers_init, num_rows="dynamic", key="pos_dampers_editor", use_container_width=True)
+    res_pos_editor = st.data_editor(
+        dampers_pos_init, 
+        num_rows="dynamic", 
+        key="pos_dampers_editor", 
+        use_container_width=True,
+        column_config={
+            "Tipo": st.column_config.SelectboxColumn("Tipo", options=["Ref_1", "Ref_2"], required=True)
+        }
+    )
 
-    st.write("**Definición de Matrices de Rigidez 6x6 (K)**")
-    col_k1, col_k2 = st.columns(2)
-    
-    with col_k1:
-        st.caption("Matriz K - Ref_1")
-        k_ref1 = np.zeros((6, 6))
-        np.fill_diagonal(k_ref1, [1.32e6, 1.32e6, 1.6e6, 0, 0, 0])
-        mat_k1 = st.data_editor(k_ref1, key="mat_k1", use_container_width=True)
+    # ✅ PROCESAMIENTO DE DATOS
+    import pandas as pd
+    df_pos = pd.DataFrame(res_pos_editor)
+    df_prop = pd.DataFrame(df_propiedades).set_index("Tipo")
+
+    for _, row in df_pos.iterrows():
+        tipo = row["Tipo"]
+        # Extraemos las propiedades según el tipo seleccionado en la tabla de posición
+        p = df_prop.loc[tipo]
         
-    with col_k2:
-        st.caption("Matriz K - Ref_2")
-        k_ref2 = np.zeros((6, 6))
-        np.fill_diagonal(k_ref2, [1.0e6, 1.0e6, 1.3e6, 0, 0, 0])
-        mat_k2 = st.data_editor(k_ref2, key="mat_k2", use_container_width=True)
-
-    for _, row in df_dampers_pos.iterrows():
-        k_asignada = mat_k1 if row["Tipo"] == "Ref_1" else mat_k2
         dampers_finales.append({
-            "nombre": row["Nombre"], "pos": [row["X"], row["Y"], row["Z"]],
-            "kx": k_asignada[0,0], "ky": k_asignada[1,1], "kz": k_asignada[2,2],
-            "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4 
+            "nombre": row["Nombre"],
+            "pos": [row["X"], row["Y"], row["Z"]],
+            "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
+            "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
         })
+
 
 # 3️⃣ ENSAMBLAJE FINAL
 config_base = {
@@ -372,13 +400,6 @@ config_base = {
         "Ref_2": {"kx": mat_k2[0,0], "ky": mat_k2[1,1], "kz": mat_k2[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
     }
 }
-
-
-
-
-
-
-
 
 
 # --- SELECTOR DE DAMPER ---

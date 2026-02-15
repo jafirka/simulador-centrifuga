@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy import linalg
 import math
 import copy
+import json
 
 # ==========================================
 # 1️⃣ TUS CLASES
@@ -180,9 +181,9 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
     dist = ex['distancia_eje']
 
     acel_cg = {"x": [], "y": [], "z": []}
+    D_fuerza = {"x": [], "y": [], "z": []}
     vel_cg  = {"x": [], "y": [], "z": []}
     D_desp  = {"x": [], "y": [], "z": []}
-    D_fuerza = {"x": [], "y": [], "z": []}
     S_desp = {"x": [], "y": [], "z": []}
     S_vel  = {"x": [], "y": [], "z": []}
     S_acel = {"x": [], "y": [], "z": []}
@@ -436,14 +437,57 @@ config_base = {
 
 }
 
+import json
+import streamlit as st
+
+st.sidebar.header("💾 Cargar/Guardar Configuración")
+
+# --- 1. BOTÓN PARA DESCARGAR (EXPORTAR) ---
+# Creamos el diccionario con el estado actual
+config_actual = {
+    "componentes_data": st.session_state.get('componentes_data'),
+    "dampers_prop_data": st.session_state.get('dampers_prop_data'),
+    "dampers_pos_data": st.session_state.get('dampers_pos_data'),
+    "placa_params": {
+        "lado_a": lado_a if 'lado_a' in locals() else 2.4,
+        "lado_b": lado_b if 'lado_b' in locals() else 2.4,
+        "esp": espesor if 'espesor' in locals() else 0.1
+    }
+}
+
+st.sidebar.download_button(
+    label="📥 Descargar configuración (.json)",
+    data=json.dumps(config_actual, indent=4),
+    file_name="config_simulacion.json",
+    mime="application/json"
+)
+
+# --- 2. CARGADOR DE ARCHIVOS (IMPORTAR) ---
+archivo_subido = st.sidebar.file_uploader("Subir configuración guardada", type=["json"])
+
+if archivo_subido is not None:
+    try:
+        # Leer el contenido del JSON
+        datos_cargados = json.load(archivo_subido)
+        
+        # Sobreescribir el session_state con los datos del archivo
+        if st.sidebar.button("✅ Aplicar datos cargados"):
+            st.session_state.componentes_data = datos_cargados["componentes_data"]
+            st.session_state.dampers_prop_data = datos_cargados["dampers_prop_data"]
+            st.session_state.dampers_pos_data = datos_cargados["dampers_pos_data"]
+            
+            # Forzamos recarga para que los widgets vean los nuevos datos
+            st.rerun()
+            
+    except Exception as e:
+        st.sidebar.error(f"Error al leer el archivo: {e}")
 
 # --- SELECTOR DE DAMPER ---
-st.sidebar.subheader("Selección de Componente")
 # Accedemos directamente al diccionario de configuración
 lista_dampers_config = config_base["dampers"] 
 # Creamos las opciones para el selectbox usando el diccionario
 opciones = [f"{i}: {d['tipo']} en {d['pos']}" for i, d in enumerate(lista_dampers_config)]
-seleccion = st.sidebar.selectbox("Seleccionar ubicación de damper:", opciones)
+seleccion = st.sidebar.selectbox("Selección de damper para diagnóstico:", opciones)
 # Extraemos el índice
 d_idx = int(seleccion.split(":")[0])
 

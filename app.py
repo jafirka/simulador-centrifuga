@@ -271,43 +271,47 @@ with col_p1:
 with col_p2:
     dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
 
-# --- NUEVA SECCIÓN: PARÁMETROS MODIFICABLES ---
-st.header("Parámetros del Modelo")
-col1, col2, col3 = st.columns(3)
+## --- NUEVA SECCIÓN: MATRIZ DE PARÁMETROS COMPACTA ---
+st.header("⚙️ Configuración de Componentes")
+st.markdown("Edita las propiedades de los componentes directamente en la tabla:")
 
-with col1:
-    st.subheader("Masas (kg)")
-    m_bancada = st.number_input("Masa Bancada", value=3542.0, step=10.0, format="%.1f")
-    m_motor = st.number_input("Masa Motor", value=940.0, step=10.0, format="%.1f")
-    m_cesto = st.number_input("Masa Cesto", value=1980.0, step=10.0, format="%.1f")
+# 1. Creamos el diccionario de datos inicial
+data_dict = {
+    "Componente": ["Bancada", "Motor", "Cesto"],
+    "Masa [kg]": [3542.0, 940.0, 1980.0],
+    "Pos X [m]": [0.194, 1.6, 0.5],
+    "Pos Y [m]": [0.0, 0.0, 0.0],
+    "Pos Z [m]": [0.859, 1.1, 0.0],
+    "Ixx [kg·m²]": [3235.0, 178.0, 178.0],
+    "Iyy [kg·m²]": [3690.0, 392.0, 392.0],
+    "Izz [kg·m²]": [2779.0, 312.0, 312.0],
+}
 
-with col2:
-    st.subheader("Posiciones (m)")
-    pos_bancada_x = st.number_input("Pos. Bancada X", value=0.194, step=0.1, format="%.3f")
-    pos_bancada_y = st.number_input("Pos. Bancada Y", value=0.0, step=0.1, format="%.3f")
-    pos_bancada_z = st.number_input("Pos. Bancada Z", value=0.859, step=0.1, format="%.3f")
+# 2. Renderizamos la matriz editable
+# Usamos use_container_width para que ocupe todo el ancho
+df_editado = st.data_editor(
+    data_dict,
+    hide_index=True,
+    use_container_width=True,
+    column_config={
+        "Componente": st.column_config.Column(disabled=True), # Evita que cambien los nombres
+    }
+)
 
-    pos_motor_x = st.number_input("Pos. Motor X", value=1.6, step=0.1, format="%.3f")
-    pos_motor_y = st.number_input("Pos. Motor Y", value=0.0, step=0.1, format="%.3f")
-    pos_motor_z = st.number_input("Pos. Motor Z", value=1.1, step=0.1, format="%.3f")
-
-    pos_cesto_x = st.number_input("Pos. Cesto X", value=0.5, step=0.1, format="%.3f")
-    pos_cesto_y = st.number_input("Pos. Cesto Y", value=0.0, step=0.1, format="%.3f")
-    pos_cesto_z = st.number_input("Pos. Cesto Z", value=0.0, step=0.1, format="%.3f")
-
-with col3:
-    st.subheader("Inercias (kg.m^2)")
-    I_bancada_xx = st.number_input("Inercia Bancada XX", value=3235.0, step=10.0, format="%.1f")
-    I_bancada_yy = st.number_input("Inercia Bancada YY", value=3690.0, step=10.0, format="%.1f")
-    I_bancada_zz = st.number_input("Inercia Bancada ZZ", value=2779.0, step=10.0, format="%.1f")
-
-    I_motor_xx = st.number_input("Inercia Motor XX", value=178.0, step=10.0, format="%.1f")
-    I_motor_yy = st.number_input("Inercia Motor YY", value=392.0, step=10.0, format="%.1f")
-    I_motor_zz = st.number_input("Inercia Motor ZZ", value=312.0, step=10.0, format="%.1f")
-
-    I_cesto_xx = st.number_input("Inercia Cesto XX", value=178.0, step=10.0, format="%.1f")
-    I_cesto_yy = st.number_input("Inercia Cesto YY", value=392.0, step=10.0, format="%.1f")
-    I_cesto_zz = st.number_input("Inercia Cesto ZZ", value=312.0, step=10.0, format="%.1f")
+# 3. Mapeo automático de vuelta a tu config_base
+# Esto extrae los valores de la tabla y los mete en el formato que tu simulador necesita
+for i, comp_name in enumerate(["bancada", "motor", "cesto"]):
+    config_base["componentes"][comp_name]["m"] = df_editado["Masa [kg]"][i]
+    config_base["componentes"][comp_name]["pos"] = [
+        df_editado["Pos X [m]"][i],
+        df_editado["Pos Y [m]"][i],
+        df_editado["Pos Z [m]"][i]
+    ]
+    config_base["componentes"][comp_name]["I"] = np.diag([
+        df_editado["Ixx [kg·m²]"][i],
+        df_editado["Iyy [kg·m²]"][i],
+        df_editado["Izz [kg·m²]"][i]
+    ])
 
 
 config_base = {

@@ -271,72 +271,20 @@ with col_p1:
 with col_p2:
     dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
 
-
-# --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
-st.header("🧱 Configuración de Componentes")
-
-# Usamos pestañas para no saturar la pantalla
-tab1, tab2, tab3 = st.tabs(["Bancada", "Motor", "Cesto"])
-
-componentes_lista = [
-    ("bancada", tab1, [3542.0, 0.194, 0.0, 0.859], [3235.0, 3690.0, 2779.0]),
-    ("motor", tab2, [940.0, 1.6, 0.0, 1.1], [178.0, 392.0, 312.0]),
-    ("cesto", tab3, [1980.0, 0.5, 0.0, 0.0], [178.0, 392.0, 312.0])
-]
-
-for nombre, tab, defaults_pos, defaults_iner in componentes_lista:
-    with tab:
-        col_m, col_p = st.columns([1, 2])
-        
-        with col_m:
-            m = st.number_input(f"Masa {nombre} (kg)", value=defaults_pos[0], key=f"m_{nombre}")
-        
-        with col_p:
-            # Posición en una sola fila
-            c1, c2, c3 = st.columns(3)
-            px = c1.number_input(f"Pos X", value=defaults_pos[1], key=f"px_{nombre}")
-            py = c2.number_input(f"Pos Y", value=defaults_pos[2], key=f"py_{nombre}")
-            pz = c3.number_input(f"Pos Z", value=defaults_pos[3], key=f"pz_{nombre}")
-
-        st.write(f"**Matriz de Inercia (3x3) para {nombre}**")
-        
-        # Creamos una matriz 3x3 inicial (solo diagonal por defecto)
-        # Si quieres 6x6 podrías, pero para la dinámica de cuerpo rígido 
-        # se usan 3 valores de masa y la submatriz 3x3 de inercia.
-        matriz_inicial = np.zeros((3, 3))
-        np.fill_diagonal(matriz_inicial, defaults_iner)
-        
-        # El data_editor permite editar cualquier celda (incluso productos de inercia)
-        df_iner = st.data_editor(
-            matriz_inicial,
-            key=f"iner_matrix_{nombre}",
-            use_container_width=True,
-            hide_index=False,
-            column_config={
-                "0": "X", "1": "Y", "2": "Z"
-            }
-        )
-
-        # Actualizamos config_base en tiempo real
-        config_base["componentes"][nombre] = {
-            "m": m,
-            "pos": [px, py, pz],
-            "I": df_iner  # Ahora la inercia es la matriz completa editada por el usuario
-        }
-
-st.divider()
-
-
-
-
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración Avanzada del Sistema")
 
-# Pestañas principales para separar la lógica
+# ✅ SOLUCIÓN AL ERROR: Inicializar el diccionario antes de usarlo en los bucles
+config_base = {
+    "componentes": {},
+    "dampers": [],
+    "tipos_dampers": {}
+}
+
+# Pestañas principales
 tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
 
-# 1️⃣ GESTIÓN DE COMPONENTES (Bancada, Motor, Cesto)
-comp_editados = {}
+
 with tab_comp:
     subtabs = st.tabs(["Bancada", "Motor", "Cesto"])
     componentes_lista = [

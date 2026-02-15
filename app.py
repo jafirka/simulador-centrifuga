@@ -271,107 +271,179 @@ with col_p1:
 with col_p2:
     dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
 
-## --- NUEVA SECCIÓN: MATRIZ DE PARÁMETROS COMPACTA ---
-st.header("⚙️ Configuración de Componentes")
-st.markdown("Edita las propiedades de los componentes directamente en la tabla:")
 
-# 1. Creamos el diccionario de datos inicial
-data_dict = {
-    "Componente": ["Bancada", "Motor", "Cesto"],
-    "Masa [kg]": [3542.0, 940.0, 1980.0],
-    "Pos X [m]": [0.194, 1.6, 0.5],
-    "Pos Y [m]": [0.0, 0.0, 0.0],
-    "Pos Z [m]": [0.859, 1.1, 0.0],
-    "Ixx [kg·m²]": [3235.0, 178.0, 178.0],
-    "Iyy [kg·m²]": [3690.0, 392.0, 392.0],
-    "Izz [kg·m²]": [2779.0, 312.0, 312.0],
-}
+# --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
+st.header("🧱 Configuración de Componentes")
 
-# 2. Renderizamos la matriz editable
-# Usamos use_container_width para que ocupe todo el ancho
-df_editado = st.data_editor(
-    data_dict,
-    hide_index=True,
-    use_container_width=True,
-    column_config={
-        "Componente": st.column_config.Column(disabled=True), # Evita que cambien los nombres
-    }
-)
+# Usamos pestañas para no saturar la pantalla
+tab1, tab2, tab3 = st.tabs(["Bancada", "Motor", "Cesto"])
 
-# 3. Mapeo automático de vuelta a tu config_base
-# Esto extrae los valores de la tabla y los mete en el formato que tu simulador necesita
-for i, comp_name in enumerate(["bancada", "motor", "cesto"]):
-    config_base["componentes"][comp_name]["m"] = df_editado["Masa [kg]"][i]
-    config_base["componentes"][comp_name]["pos"] = [
-        df_editado["Pos X [m]"][i],
-        df_editado["Pos Y [m]"][i],
-        df_editado["Pos Z [m]"][i]
+componentes_lista = [
+    ("bancada", tab1, [3542.0, 0.194, 0.0, 0.859], [3235.0, 3690.0, 2779.0]),
+    ("motor", tab2, [940.0, 1.6, 0.0, 1.1], [178.0, 392.0, 312.0]),
+    ("cesto", tab3, [1980.0, 0.5, 0.0, 0.0], [178.0, 392.0, 312.0])
+]
+
+for nombre, tab, defaults_pos, defaults_iner in componentes_lista:
+    with tab:
+        col_m, col_p = st.columns([1, 2])
+        
+        with col_m:
+            m = st.number_input(f"Masa {nombre} (kg)", value=defaults_pos[0], key=f"m_{nombre}")
+        
+        with col_p:
+            # Posición en una sola fila
+            c1, c2, c3 = st.columns(3)
+            px = c1.number_input(f"Pos X", value=defaults_pos[1], key=f"px_{nombre}")
+            py = c2.number_input(f"Pos Y", value=defaults_pos[2], key=f"py_{nombre}")
+            pz = c3.number_input(f"Pos Z", value=defaults_pos[3], key=f"pz_{nombre}")
+
+        st.write(f"**Matriz de Inercia (3x3) para {nombre}**")
+        
+        # Creamos una matriz 3x3 inicial (solo diagonal por defecto)
+        # Si quieres 6x6 podrías, pero para la dinámica de cuerpo rígido 
+        # se usan 3 valores de masa y la submatriz 3x3 de inercia.
+        matriz_inicial = np.zeros((3, 3))
+        np.fill_diagonal(matriz_inicial, defaults_iner)
+        
+        # El data_editor permite editar cualquier celda (incluso productos de inercia)
+        df_iner = st.data_editor(
+            matriz_inicial,
+            key=f"iner_matrix_{nombre}",
+            use_container_width=True,
+            hide_index=False,
+            column_config={
+                "0": "X", "1": "Y", "2": "Z"
+            }
+        )
+
+        # Actualizamos config_base en tiempo real
+        config_base["componentes"][nombre] = {
+            "m": m,
+            "pos": [px, py, pz],
+            "I": df_iner  # Ahora la inercia es la matriz completa editada por el usuario
+        }
+
+st.divider()
+
+
+
+
+# --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
+st.header("🧱 Configuración Avanzada del Sistema")
+
+# Pestañas principales para separar la lógica
+tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
+
+# 1️⃣ GESTIÓN DE COMPONENTES (Bancada, Motor, Cesto)
+comp_editados = {}
+with tab_comp:
+    subtabs = st.tabs(["Bancada", "Motor", "Cesto"])
+    componentes_lista = [
+        ("bancada", subtabs[0], [3542.0, 0.194, 0.0, 0.859], [3235.0, 3690.0, 2779.0]),
+        ("motor", subtabs[1], [940.0, 1.6, 0.0, 1.1], [178.0, 392.0, 312.0]),
+        ("cesto", subtabs[2], [1980.0, 0.5, 0.0, 0.0], [178.0, 392.0, 312.0])
     ]
-    config_base["componentes"][comp_name]["I"] = np.diag([
-        df_editado["Ixx [kg·m²]"][i],
-        df_editado["Iyy [kg·m²]"][i],
-        df_editado["Izz [kg·m²]"][i]
-    ])
 
+    for nombre, subtab, def_pos, def_iner in componentes_lista:
+        with subtab:
+            c_m, c_p = st.columns([1, 2])
+            with c_m:
+                m = st.number_input(f"Masa {nombre} (kg)", value=def_pos[0], key=f"m_{nombre}")
+            with c_p:
+                cx, cy, cz = st.columns(3)
+                px = cx.number_input(f"X [m]", value=def_pos[1], key=f"px_{nombre}")
+                py = cy.number_input(f"Y [m]", value=def_pos[2], key=f"py_{nombre}")
+                pz = cz.number_input(f"Z [m]", value=def_pos[3], key=f"pz_{nombre}")
 
+            st.write(f"**Matriz de Inercia/Masa 6x6 para {nombre}**")
+            # Inicializamos matriz 6x6. Los términos de inercia suelen ir en el bloque inferior derecho (3:6, 3:6)
+            m_6x6 = np.zeros((6, 6))
+            np.fill_diagonal(m_6x6[3:6, 3:6], def_iner) # Inercias rotacionales
+            np.fill_diagonal(m_6x6[0:3, 0:3], m)        # Masas traslacionales
+            
+            df_iner_6x6 = st.data_editor(
+                m_6x6,
+                key=f"matrix_6x6_{nombre}",
+                use_container_width=True,
+                column_config={str(i): f"GL {i+1}" for i in range(6)}
+            )
+            # Guardamos la submatriz de inercia 3x3 para el simulador estándar o la 6x6 según requieras
+            comp_editados[nombre] = {"m": m, "pos": [px, py, pz], "I": df_iner_6x6[3:6, 3:6]}
+
+# 2️⃣ GESTIÓN DE DAMPERS (Tabla de Posiciones y Matrices 6x6)
+dampers_finales = []
+with tab_dampers:
+    st.write("**Editor de Apoyos Elásticos (Dampers)**")
+    
+    # Tabla para posiciones y selección de matriz
+    dampers_init = [
+        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
+        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
+    ]
+    
+    df_dampers_pos = st.data_editor(
+        dampers_init,
+        num_rows="dynamic",
+        key="pos_dampers_editor",
+        use_container_width=True
+    )
+
+    st.divider()
+    st.write("**Definición de Matrices de Rigidez 6x6 (K) por Tipo**")
+    
+    col_k1, col_k2 = st.columns(2)
+    with col_k1:
+        st.caption("Matriz K - Ref_1 (Motor)")
+        k_ref1 = np.zeros((6, 6))
+        np.fill_diagonal(k_ref1, [1.32e6, 1.32e6, 1.6e6, 0, 0, 0])
+        mat_k1 = st.data_editor(k_ref1, key="mat_k1", use_container_width=True)
+        
+    with col_k2:
+        st.caption("Matriz K - Ref_2 (Front)")
+        k_ref2 = np.zeros((6, 6))
+        np.fill_diagonal(k_ref2, [1.0e6, 1.0e6, 1.3e6, 0, 0, 0])
+        mat_k2 = st.data_editor(k_ref2, key="mat_k2", use_container_width=True)
+
+    # Procesar dampers para config_base
+    for _, row in df_dampers_pos.iterrows():
+        # Asignamos la matriz elegida según el "Tipo"
+        k_asignada = mat_k1 if row["Tipo"] == "Ref_1" else mat_k2
+        dampers_finales.append({
+            "nombre": row["Nombre"],
+            "pos": [row["X"], row["Y"], row["Z"]],
+            "K_matrix": k_asignada,
+            # Para mantener compatibilidad con Damper class, extraemos la diagonal como kx, ky, kz
+            "kx": k_asignada[0,0], "ky": k_asignada[1,1], "kz": k_asignada[2,2],
+            "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4 # Amortiguamiento (se podría hacer igual en 6x6)
+        })
+
+st.divider()
+
+# 3️⃣ ACTUALIZACIÓN DE CONFIG_BASE
 config_base = {
     "eje_vertical": eje_vertical, 
     "plano_rotor": plano_rotor,
     "excitacion": {
-        "distancia_eje": 1.2,           # La "altura" o "posición" a lo largo de ese eje
+        "distancia_eje": 1.2,
         "m_unbalance": m_unbalance,
         "e_unbalance": 0.8
     },
     "placa": {
-        "lado_a": 2.4,        # Dimensión 1 del plano (m)
-        "lado_b": 2.4,        # Dimensión 2 del plano (m)
-        "espesor": 0.1,       # Dimensión en el eje de gir (m)
-        "radio_agujero": 0.5,    # Radio del hueco central (m)
-        "dist_A": dist_A,
-        "dist_B": dist_B
+        "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, "radio_agujero": 0.5,
+        "dist_A": dist_A, "dist_B": dist_B
     },
-    "componentes": {
-        "bancada": {
-            "m": 3542,
-            "pos": [0.194, 0, 0.859],
-            "I": np.array([      # Matriz 3x3 de SolidWorks
-                [3235, 0, 0],
-                [0, 3690, 0],
-                [0, 0, 2779]
-            ])
-        },
-        "motor": {
-            "m": 940,
-            "pos": [1.6, 0, 1.1],
-            "I": np.array([      # Matriz 3x3 de SolidWorks
-                [178, 0, 0],
-                [0, 392, 0],
-                [0, 0, 312]
-            ])
-        },
-        "cesto": {
-            "m": 1980,
-            "pos": [0.5, 0, 0],
-            "I": np.array([      # Matriz 3x3 de SolidWorks
-                [178, 0, 0],
-                [0, 392, 0],
-                [0, 0, 312]
-            ])
-        },
-    },
-    "tipos_dampers": {
-        "ZPVL-235-653_Motor": {"kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
-        "ZPVL-235-453": {"kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
-    },
-    "dampers": [
-        {"tipo": "ZPVL-235-653_Motor", "pos": [1.12, 0.84, 0]},
-        {"tipo": "ZPVL-235-653_Motor", "pos": [1.12, -0.84, 0]},
-        {"tipo": "ZPVL-235-453", "pos": [-0.93, 0.84, 0]},
-        {"tipo": "ZPVL-235-453", "pos": [-0.93, -0.84, 0]}
-    ],
+    "componentes": comp_editados,
+    "dampers": dampers_finales,
     "sensor": {
-		"pos_sensor": [sensor_x, sensor_y, sensor_z]
-        #"pos_sensor": [0, 0.8, 0]       # Ubicación del sensor de velocidad
+        "pos_sensor": [sensor_x, sensor_y, sensor_z]
+    },
+    # Mapeo de tipos para compatibilidad si fuera necesario
+    "tipos_dampers": {
+        "Ref_1": {"kx": mat_k1[0,0], "ky": mat_k1[1,1], "kz": mat_k1[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
+        "Ref_2": {"kx": mat_k2[0,0], "ky": mat_k2[1,1], "kz": mat_k2[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
     }
 }
 

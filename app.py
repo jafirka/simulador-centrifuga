@@ -426,14 +426,17 @@ with col_map1:
         idx_h, idx_v = 1, 2  # Horizontal=Y, Vertical=Z
         label_h, label_v = "Y [m]", "Z [m]"
 
-    # --- 2. Dimensiones de la placa ---
+# Extraemos la posición del componente placa definido en el simulador
+    pos_placa_completa = modelo_base.componentes["placa"]["pos"] 
+    pos_h_placa = pos_placa_completa[idx_h]
+    pos_v_placa = pos_placa_completa[idx_v]
+
     lado_a = config_base["placa"]["lado_a"]
     lado_b = config_base["placa"]["lado_b"]
     
-    # Dibujamos el rectángulo centrado en el origen del plano visual
-    # ✅ MODIFICADO: El anclaje se calcula sobre los ejes visibles
-    anclaje_h = -lado_a / 2
-    anclaje_v = -lado_b / 2
+# ✅ MODIFICADO: El anclaje ahora depende de la posición real del CG de la placa
+    anclaje_h = pos_h_placa - lado_a / 2
+    anclaje_v = pos_v_placa - lado_b / 2
 
     rect = plt.Rectangle((anclaje_h, anclaje_v), lado_a, lado_b, 
                          color='lightgray', alpha=0.3, label='Placa Base')

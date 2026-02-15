@@ -325,22 +325,19 @@ with tab_comp:
 dampers_finales = []
 with tab_dampers:
     st.write("### 1. Definición de Propiedades por Tipo")
-    st.info("Define aquí la Rigidez (K) y el Amortiguamiento (C) para los dos tipos de soporte.")
-
-    # Diccionario inicial con los dos tipos
+    
     propiedades_init = [
         {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
         {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
     ]
     
-    # Tabla compacta para K y C
-    df_propiedades = st.data_editor(
+    res_prop_editor = st.data_editor(
         propiedades_init,
         key="editor_propiedades_dampers",
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Tipo": st.column_config.Column(disabled=True), # No dejamos cambiar el nombre del tipo
+            "Tipo": st.column_config.Column(disabled=True),
             "kx": st.column_config.NumberColumn("Kx [N/m]"),
             "ky": st.column_config.NumberColumn("Ky [N/m]"),
             "kz": st.column_config.NumberColumn("Kz [N/m]"),
@@ -368,19 +365,18 @@ with tab_dampers:
         }
     )
 
-    # ✅ PROCESAMIENTO DE DATOS
+    # PROCESAMIENTO
     import pandas as pd
     df_pos = pd.DataFrame(res_pos_editor)
-    df_prop = pd.DataFrame(df_propiedades).set_index("Tipo")
+    df_prop = pd.DataFrame(res_prop_editor).set_index("Tipo")
 
     for _, row in df_pos.iterrows():
-        tipo = row["Tipo"]
-        # Extraemos las propiedades según el tipo seleccionado en la tabla de posición
-        p = df_prop.loc[tipo]
-        
+        tipo_sel = row["Tipo"]
+        p = df_prop.loc[tipo_sel]
         dampers_finales.append({
             "nombre": row["Nombre"],
             "pos": [row["X"], row["Y"], row["Z"]],
+            "tipo": tipo_sel, # <--- CRÍTICO: El simulador necesita este campo
             "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
             "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
         })
@@ -395,10 +391,8 @@ config_base = {
     "componentes": comp_editados,
     "dampers": dampers_finales,
     "sensor": {"pos_sensor": [sensor_x, sensor_y, sensor_z]},
-    "tipos_dampers": {
-        "Ref_1": {"kx": mat_k1[0,0], "ky": mat_k1[1,1], "kz": mat_k1[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
-        "Ref_2": {"kx": mat_k2[0,0], "ky": mat_k2[1,1], "kz": mat_k2[2,2], "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
-    }
+    "tipos_dampers": df_prop.to_dict('index') # Reemplaza a las variables mat_k1/k2
+
 }
 
 

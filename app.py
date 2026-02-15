@@ -409,30 +409,33 @@ A continuación se detallan los parámetros de entrada utilizados para este aná
 col_map1, col_map2 = st.columns([1, 1])
 
 with col_map1:
-    st.write("**Mapa de Ubicación de Dampers (Esquema en plano XY)**")
+    st.write(f"**Mapa de Ubicación (Plano perpendicular al eje {eje_vertical.upper()})**")
     fig_map, ax_map = plt.subplots(figsize=(5, 5))
 
-    # --- Lógica condicional para dibujar la placa esquemáticamente ---
-    eje_vertical = config_base["eje_vertical"]
+    # --- 1. Determinar qué ejes graficar según el eje vertical ---
+    # Si vertical es Z -> Graficamos X e Y
+    # Si vertical es Y -> Graficamos X e Z
+    # Si vertical es X -> Graficamos Y e Z
+    if eje_vertical == 'z':
+        idx_h, idx_v = 0, 1  # Horizontal=X, Vertical=Y
+        label_h, label_v = "X [m]", "Y [m]"
+    elif eje_vertical == 'y':
+        idx_h, idx_v = 0, 2  # Horizontal=X, Vertical=Z
+        label_h, label_v = "X [m]", "Z [m]"
+    else: # 'x'
+        idx_h, idx_v = 1, 2  # Horizontal=Y, Vertical=Z
+        label_h, label_v = "Y [m]", "Z [m]"
+
+    # --- 2. Dimensiones de la placa ---
     lado_a = config_base["placa"]["lado_a"]
     lado_b = config_base["placa"]["lado_b"]
-    pos_placa_xy = modelo_base.componentes["placa"]["pos"][:2]
-    # Asignar dimensiones al gráfico 2D según la orientación del modelo
-    if eje_vertical == 'z':
-        # Eje de rotación Z: la placa está en el plano XY. (ancho=lado_a, alto=lado_b)
-        anclaje_rect = (pos_placa_xy[0] - lado_a / 2, pos_placa_xy[1] - lado_a / 2)
-    elif eje_vertical == 'x':
-        # Eje de rotación X: la placa está en el plano YZ.
-        # En el mapa XY, representamos la dimensión Y como la altura y la Z como el ancho.
-        anclaje_rect = (pos_placa_xy[1] - lado_a / 2, pos_placa_xy[2] - lado_a / 2)
-    else: # eje_vertical == 'y'
-        # Eje de rotación Y: la placa está en el plano XZ.
-        # En el mapa XY, representamos la dimensión X como el ancho y la Z como la altura.
-        anclaje_rect = (pos_placa_xy[0] - lado_a / 2, pos_placa_xy[2] - lado_a / 2)
-
     
-    # Crear y añadir el rectángulo que representa la placa
-    rect = plt.Rectangle(anclaje_rect, lado_a, lado_b, 
+    # Dibujamos el rectángulo centrado en el origen del plano visual
+    # ✅ MODIFICADO: El anclaje se calcula sobre los ejes visibles
+    anclaje_h = -lado_a / 2
+    anclaje_v = -lado_b / 2
+
+    rect = plt.Rectangle((anclaje_h, anclaje_v), lado_a, lado_b, 
                          color='lightgray', alpha=0.3, label='Placa Base')
     ax_map.add_patch(rect)
     

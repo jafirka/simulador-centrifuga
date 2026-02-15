@@ -281,7 +281,14 @@ with col_p1:
 with col_p2:
     dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
 
-
+# --- 1. CONFIGURACIÓN MAESTRA DE EJES (Mover arriba de los Tabs) ---
+# Esto debe ir justo después de definir el selectbox de eje_vertical en el sidebar
+if eje_vertical == 'x':
+    horizontales = ['y', 'z']
+elif eje_vertical == 'y':
+    horizontales = ['x', 'z']
+else: # 'z'
+    horizontales = ['x', 'y']
 
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración del Sistema")

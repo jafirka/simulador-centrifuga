@@ -243,8 +243,6 @@ st.markdown("Modifica los valores en la barra lateral para ver el impacto en las
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
 st.sidebar.header("Parámetros de Diseño")
-st.sidebar.text("Distancia CG_motor al CG centrifuga: 1.6 [m]")
-st.sidebar.text("Espesor de placa: 100 [mm]")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
@@ -274,21 +272,6 @@ elif eje_vertical == 'y':
 else: # 'z'
     plano_rotor = ['x', 'y']
 
-st.sidebar.subheader("Posición de la Placa (m)")
-col_p1, col_p2 = st.sidebar.columns(2)
-with col_p1:
-    dist_A = st.number_input(f"Placa {plano_rotor[0].upper()} (dist_A)", value=0.0, step=0.1, format="%.2f")
-with col_p2:
-    dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
-
-# --- 1. CONFIGURACIÓN MAESTRA DE EJES (Mover arriba de los Tabs) ---
-# Esto debe ir justo después de definir el selectbox de eje_vertical en el sidebar
-if eje_vertical == 'x':
-    horizontales = ['y', 'z']
-elif eje_vertical == 'y':
-    horizontales = ['x', 'z']
-else: # 'z'
-    horizontales = ['x', 'y']
 
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración del Sistema")
@@ -357,9 +340,9 @@ with tab_comp:
         col_p1, col_p2 = st.columns(2)
         # Usamos los nombres dist_A y dist_B que ya tenías en tu lógica
         with col_p1:
-            dist_A = st.number_input(f"Desfase en {horizontales[0].upper()} (dist_A)", value=0.0, step=0.1)
+            dist_A = st.number_input(f"Desfase en {plano_rotor[0].upper()} (dist_A)", value=0.0, step=0.1)
         with col_p2:
-            dist_B = st.number_input(f"Desfase en {horizontales[1].upper()} (dist_B)", value=0.0, step=0.1)
+            dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1)
 
         # Estos valores se guardarán luego en config_base["placa"]
 
@@ -445,11 +428,10 @@ config_base = {
     "eje_vertical": eje_vertical, 
     "plano_rotor": plano_rotor,
     "excitacion": {"distancia_eje": 1.2, "m_unbalance": m_unbalance, "e_unbalance": 0.8},
-    "placa": {"lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, "radio_agujero": 0.5, "dist_A": dist_A, "dist_B": dist_B},
+    "placa": {"lado_a": lado_a, "lado_b": lado_b, "espesor": espesor, "radio_agujero": radio_agujero, "dist_A": dist_A, "dist_B": dist_B},
     "componentes": comp_editados,
     "dampers": dampers_finales,
     "sensor": {"pos_sensor": [sensor_x, sensor_y, sensor_z]},
-    # Mapeo de seguridad para evitar KeyErrors
     "tipos_dampers": df_prop.to_dict('index')
 
 }

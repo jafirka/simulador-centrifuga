@@ -325,61 +325,77 @@ with tab_comp:
 dampers_finales = []
 with tab_dampers:
     st.write("### 1. Definición de Propiedades por Tipo")
+    st.info("💡 Ahora puedes cambiar los nombres 'Ref_1' o 'Ref_2' por nombres personalizados (ej. 'Silentblock A').")
+
+    # Datos iniciales
+    if 'propiedades_data' not in st.session_state:
+        st.session_state.propiedades_data = [
+            {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
+            {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
+        ]
     
-    propiedades_init = [
-        {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
-        {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
-    ]
-    
-    res_prop_editor = st.data_editor(
-        propiedades_init,
-        key="editor_propiedades_dampers",
+    # Tabla de propiedades con columna "Tipo" EDITABLE
+    df_prop_editada = st.data_editor(
+        st.session_state.propiedades_data,
+        key="editor_tipos_nombres",
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Tipo": st.column_config.Column(disabled=True),
+            "Tipo": st.column_config.TextColumn("Nombre del Tipo/Modelo", help="Cambia este nombre y se actualizará abajo", required=True),
             "kx": st.column_config.NumberColumn("Kx [N/m]"),
             "ky": st.column_config.NumberColumn("Ky [N/m]"),
             "kz": st.column_config.NumberColumn("Kz [N/m]"),
-            "cx": st.column_config.NumberColumn("Cx [Ns/m]"),
-            "cy": st.column_config.NumberColumn("Cy [Ns/m]"),
-            "cz": st.column_config.NumberColumn("Cz [Ns/m]"),
         }
     )
 
+    # Extraemos la lista de nombres actuales para el selector de la segunda tabla
+    import pandas as pd
+    df_prop = pd.DataFrame(df_prop_editada)
+    lista_tipos_disponibles = df_prop["Tipo"].tolist()
+
     st.write("### 2. Ubicación de los Dampers")
+    
     dampers_pos_init = [
-        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
-        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
-        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
-        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
+        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[0]},
+        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[0]},
+        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[1] if len(lista_tipos_disponibles)>1 else lista_tipos_disponibles[0]},
+        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[1] if len(lista_tipos_disponibles)>1 else lista_tipos_disponibles[0]},
     ]
     
+    # La columna "Tipo" ahora usa las opciones dinámicas de la tabla anterior
     res_pos_editor = st.data_editor(
         dampers_pos_init, 
         num_rows="dynamic", 
-        key="pos_dampers_editor", 
+        key="pos_dampers_editor_v2", 
         use_container_width=True,
         column_config={
-            "Tipo": st.column_config.SelectboxColumn("Tipo", options=["Ref_1", "Ref_2"], required=True)
+            "Tipo": st.column_config.SelectboxColumn(
+                "Tipo de Damper", 
+                options=lista_tipos_disponibles, # <--- OPCIONES DINÁMICAS
+                required=True
+            )
         }
     )
 
-    # PROCESAMIENTO
-    import pandas as pd
+    # ✅ PROCESAMIENTO FINAL
     df_pos = pd.DataFrame(res_pos_editor)
-    df_prop = pd.DataFrame(res_prop_editor).set_index("Tipo")
+    df_prop_indexed = df_prop.set_index("Tipo")
 
     for _, row in df_pos.iterrows():
         tipo_sel = row["Tipo"]
-        p = df_prop.loc[tipo_sel]
-        dampers_finales.append({
-            "nombre": row["Nombre"],
-            "pos": [row["X"], row["Y"], row["Z"]],
-            "tipo": tipo_sel, # <--- CRÍTICO: El simulador necesita este campo
-            "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
-            "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
-        })
+        # Evitamos error si el usuario escribió un nombre que no está en la tabla de arriba
+        if tipo_sel in df_prop_indexed.index:
+            p = df_prop_indexed.loc[tipo_sel]
+            dampers_finales.append({
+                "nombre": row["Nombre"],
+                "pos": [row["X"], row["Y"], row["Z"]],
+                "tipo": tipo_sel,
+                "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
+                "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
+            })
+        else:
+            st.error(f"El tipo '{tipo_sel}' no está definido en la tabla de propiedades superior.")
+
 
 
 # 3️⃣ ENSAMBLAJE FINAL

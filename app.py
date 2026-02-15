@@ -84,7 +84,7 @@ class SimuladorCentrifuga:
 
         # --- Componentes ---
         self.componentes = {
-            "placa": {"m": self.m_placa, "pos": [0, 0, 0], "I": self.I_placa},
+            "placa": {"m": self.m_placa, "pos": pos_placa, "I": self.I_placa},
             "cesto": config['componentes']['cesto'],
             "bancada": config['componentes']['bancada'],
             "motor": config['componentes']['motor']

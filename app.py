@@ -5,6 +5,38 @@ from scipy import linalg
 import math
 import copy
 import json
+import pandas as pd
+
+# --- INICIALIZACIÓN DE SESSION STATE ---
+# Solo se ejecuta la primera vez que se abre la app
+if 'componentes_data' not in st.session_state:
+    st.session_state.componentes_data = {
+        "bancada": {"m": 3542.0, "pos": [0.194, 0.0, 0.859], "I": [[3235.0, 0, 0], [0, 3690.0, 0], [0, 0, 2779.0]]},
+        "motor": {"m": 940.0, "pos": [1.6, 0.0, 1.1], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]},
+        "cesto": {"m": 1980.0, "pos": [0.5, 0.0, 0.0], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]}
+    }
+
+if 'dampers_prop_data' not in st.session_state:
+    st.session_state.dampers_prop_data = [
+        {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
+        {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
+    ]
+
+if 'dampers_pos_data' not in st.session_state:
+    st.session_state.dampers_pos_data = [
+        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
+        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
+    ]
+
+if 'placa_data' not in st.session_state:
+    st.session_state.placa_data = {
+        "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, 
+        "radio_agujero": 0.5, "dist_A": 0.0, "dist_B": 0.0
+    }
+
+
 
 # ==========================================
 # 1️⃣ TUS CLASES
@@ -327,8 +359,15 @@ with tab_comp:
 # 2. ✅ NUEVA SUBTAB: Datos de la Placa de Inercia
     with subtabs[3]:
         st.write("### Parámetros Geométricos de la Placa")
-        col_g1, col_g2 = st.columns(2)
         
+        lado_a = st.number_input("Lado A", value=st.session_state.placa_data["lado_a"])
+        lado_b = st.number_input("Lado B", value=st.session_state.placa_data["lado_b"])
+        espesor = st.number_input("Espesor", value=st.session_state.placa_data["espesor"])
+        radio_agujero = st.number_input("Radio_agujero", value=st.session_state.placa_data["radio_agujero"]) 
+        dist_A = st.number_input("Dist A", value=st.session_state.placa_data["dist_A"])
+        dist_B = st.number_input("Dist B", value=st.session_state.placa_data["dist_B"])
+        
+        col_g1, col_g2 = st.columns(2)
         with col_g1:
             lado_a = st.number_input("Lado A [m]", value=2.4, step=0.1, format="%.2f")
             lado_b = st.number_input("Lado B [m]", value=2.4, step=0.1, format="%.2f")
@@ -345,7 +384,12 @@ with tab_comp:
         with col_p2:
             dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1)
 
-        # Estos valores se guardarán luego en config_base["placa"]
+        st.session_state.placa_data.update({"lado_a": lado_a, "lado_b": lado_b, "espesor": espesor, "radio_agujero": radio_agujero, "dist_A": dist_A, "dist_B": dist_B
+            })
+
+
+
+
 
 # 2️⃣ GESTIÓN DE DAMPERS
 dampers_finales = []
@@ -437,50 +481,60 @@ config_base = {
 
 }
 
-import json
-import streamlit as st
 
-st.sidebar.header("💾 Cargar/Guardar Configuración")
+st.sidebar.divider()
+st.sidebar.header("💾 Gestión de Archivos")
 
-# --- 1. BOTÓN PARA DESCARGAR (EXPORTAR) ---
-# Creamos el diccionario con el estado actual
-config_actual = {
-    "componentes_data": st.session_state.get('componentes_data'),
-    "dampers_prop_data": st.session_state.get('dampers_prop_data'),
-    "dampers_pos_data": st.session_state.get('dampers_pos_data'),
-    "placa_params": {
-        "lado_a": lado_a if 'lado_a' in locals() else 2.4,
-        "lado_b": lado_b if 'lado_b' in locals() else 2.4,
-        "esp": espesor if 'espesor' in locals() else 0.1
-    }
+# --- FUNCIONALIDAD DE EXPORTAR (Download) ---
+# Preparamos el diccionario con todo lo que hay en memoria actualmente
+datos_a_exportar = {
+    "componentes_data": st.session_state.componentes_data,
+    "dampers_prop_data": st.session_state.dampers_prop_data,
+    "dampers_pos_data": st.session_state.dampers_pos_data,
+    "placa_data": st.session_state.placa_data
 }
 
+# Convertir a string JSON
+json_string = json.dumps(datos_a_exportar, indent=4)
+
 st.sidebar.download_button(
-    label="📥 Descargar configuración (.json)",
-    data=json.dumps(config_actual, indent=4),
-    file_name="config_simulacion.json",
-    mime="application/json"
+    label="📥 Descargar Configuración (.json)",
+    data=json_string,
+    file_name="config_centrifuga.json",
+    mime="application/json",
+    help="Guarda todos los datos actuales en un archivo para usarlos después."
 )
 
-# --- 2. CARGADOR DE ARCHIVOS (IMPORTAR) ---
-archivo_subido = st.sidebar.file_uploader("Subir configuración guardada", type=["json"])
+st.sidebar.write("---")
+
+# --- FUNCIONALIDAD DE IMPORTAR (Upload) ---
+archivo_subido = st.sidebar.file_uploader("📂 Cargar archivo JSON", type=["json"])
 
 if archivo_subido is not None:
     try:
-        # Leer el contenido del JSON
         datos_cargados = json.load(archivo_subido)
         
-        # Sobreescribir el session_state con los datos del archivo
-        if st.sidebar.button("✅ Aplicar datos cargados"):
-            st.session_state.componentes_data = datos_cargados["componentes_data"]
-            st.session_state.dampers_prop_data = datos_cargados["dampers_prop_data"]
-            st.session_state.dampers_pos_data = datos_cargados["dampers_pos_data"]
-            
-            # Forzamos recarga para que los widgets vean los nuevos datos
-            st.rerun()
-            
+        # Botón de confirmación para inyectar los datos
+        if st.sidebar.button("✅ Aplicar datos del archivo"):
+            # Validamos que el archivo tenga las llaves necesarias
+            required_keys = ["componentes_data", "dampers_prop_data", "dampers_pos_data", "placa_data"]
+            if all(key in datos_cargados for key in required_keys):
+                
+                # Actualizamos el Session State
+                st.session_state.componentes_data = datos_cargados["componentes_data"]
+                st.session_state.dampers_prop_data = datos_cargados["dampers_prop_data"]
+                st.session_state.dampers_pos_data = datos_cargados["dampers_pos_data"]
+                st.session_state.placa_data = datos_cargados["placa_data"]
+                
+                st.sidebar.success("¡Configuración aplicada!")
+                st.rerun() # Recarga la app para mostrar los nuevos valores
+            else:
+                st.sidebar.error("El archivo JSON no tiene el formato correcto.")
+                
     except Exception as e:
-        st.sidebar.error(f"Error al leer el archivo: {e}")
+        st.sidebar.error(f"Error al procesar el archivo: {e}")
+
+
 
 # --- SELECTOR DE DAMPER ---
 # Accedemos directamente al diccionario de configuración

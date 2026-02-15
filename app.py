@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import linalg
 import math
+import copy
 
 # ==========================================
 # 1️⃣ TUS CLASES
@@ -30,7 +31,7 @@ class Damper:
 class SimuladorCentrifuga:
     def __init__(self, config):
         self.pos_sensor = np.array(config["sensor"]["pos_sensor"])
-        self.eje_vertical = config['excitacion']['eje_giro'].lower()
+        self.eje_vertical = config['eje_vertical'].lower()
         # --- Parámetros de la Placa ---
         p = config['placa']
         l_a, l_b, esp = p['lado_a'], p['lado_b'], p['espesor']
@@ -159,7 +160,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
 
 
     ex = modelo.excitacion
-    eje_cesto = ex['eje_giro'].lower()
+   
     dist = ex['distancia_eje']
 
     acel_cg = {"x": [], "y": [], "z": []}
@@ -175,11 +176,11 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
         F0 = ex['m_unbalance'] * ex['e_unbalance'] * w**2
 
         # Construcción del vector de excitación F (6 componentes)
-        if eje_cesto == 'x':
+        if eje_vertical == 'x':
             arm = dist - cg_global[0]
             # Fuerza en Y y Z | Momento en Y (debido a Fz) y Momento en Z (debido a Fy)
             F = np.array([0, F0, F0*1j, 0, -(F0*1j)*arm, F0*arm])
-        elif eje_cesto == 'y':
+        elif eje_vertical == 'y':
             arm = dist - cg_global[1]
             # Fuerza en X y Z | Momento en X (debido a Fz) y Momento en Z (debido a Fx)
             F = np.array([F0, 0, F0*1j, (F0*1j)*arm, 0, -F0*arm])
@@ -256,12 +257,9 @@ else: # 'z'
     plano_rotor = ['x', 'y']
 
 config_base = {
-    "ejes": {
-        "vertical": eje_vertical,
-        "plano_rotor": plano_rotor
-    },
+    "eje_vertical": eje_vertical, 
+    "plano_rotor": plano_rotor,
     "excitacion": {
-        "eje_giro": eje_vertical,        # El eje sobre el que gira la máquina
         "distancia_eje": 1.2,           # La "altura" o "posición" a lo largo de ese eje
         "m_unbalance": m_unbalance,
         "e_unbalance": 0.8
@@ -348,9 +346,9 @@ f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
 
 
 # Ejes
-ejes = config_base["ejes"]
-vertical = ejes["vertical"]
-horizontales = ejes["plano_rotor"]  # lista con los dos ejes del plano horizontal
+
+vertical = config_base["eje_vertical"]
+horizontales = config_base["plano_rotor"]  # lista con los dos ejes del plano horizontal
 
 # Colores y etiquetas
 colores = {horizontales[0]: "tab:blue", horizontales[1]: "tab:orange", vertical: "tab:green"}

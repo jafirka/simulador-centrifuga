@@ -426,65 +426,51 @@ with subtabs[3]:
 dampers_finales = []
 with tab_dampers:
     st.write("### 1. Definición de Propiedades por Tipo")
-    st.info("💡 Ahora puedes cambiar los nombres 'Ref_1' o 'Ref_2' por nombres personalizados (ej. 'Silentblock A').")
-
-    # Datos iniciales
-    if 'propiedades_data' not in st.session_state:
-        st.session_state.propiedades_data = [
-            {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
-            {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
-        ]
     
-    # Tabla de propiedades con columna "Tipo" EDITABLE
+    # 1. Editor de Propiedades (Ya lo tenías bien, pero aseguramos el guardado)
     df_prop_editada = st.data_editor(
-        st.session_state.propiedades_data,
+        st.session_state.dampers_prop_data,
         key="editor_tipos_nombres",
         use_container_width=True,
         hide_index=True,
         column_config={
-            "Tipo": st.column_config.TextColumn("Nombre del Tipo/Modelo", help="Cambia este nombre y se actualizará abajo", required=True),
+            "Tipo": st.column_config.TextColumn("Nombre del Tipo/Modelo", required=True),
             "kx": st.column_config.NumberColumn("Kx [N/m]"),
             "ky": st.column_config.NumberColumn("Ky [N/m]"),
             "kz": st.column_config.NumberColumn("Kz [N/m]"),
         }
     )
+    # IMPORTANTE: Guardar el cambio en el estado para que el JSON sepa qué hay
+    st.session_state.dampers_prop_data = df_prop_editada
 
-    # Extraemos la lista de nombres actuales para el selector de la segunda tabla
-    import pandas as pd
     df_prop = pd.DataFrame(df_prop_editada)
     lista_tipos_disponibles = df_prop["Tipo"].tolist()
 
     st.write("### 2. Ubicación de los Dampers")
     
-    dampers_pos_init = [
-        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[0]},
-        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[0]},
-        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[1] if len(lista_tipos_disponibles)>1 else lista_tipos_disponibles[0]},
-        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": lista_tipos_disponibles[1] if len(lista_tipos_disponibles)>1 else lista_tipos_disponibles[0]},
-    ]
-    
-    # La columna "Tipo" ahora usa las opciones dinámicas de la tabla anterior
+    # 2. Editor de Posiciones (CORREGIDO para usar Session State)
     res_pos_editor = st.data_editor(
-        dampers_pos_init, 
+        st.session_state.dampers_pos_data, # <--- USAR ESTADO, NO LA LISTA FIJA
         num_rows="dynamic", 
         key="pos_dampers_editor_v2", 
         use_container_width=True,
         column_config={
             "Tipo": st.column_config.SelectboxColumn(
                 "Tipo de Damper", 
-                options=lista_tipos_disponibles, # <--- OPCIONES DINÁMICAS
+                options=lista_tipos_disponibles,
                 required=True
             )
         }
     )
+    # IMPORTANTE: Guardar el cambio en el estado
+    st.session_state.dampers_pos_data = res_pos_editor
 
     # ✅ PROCESAMIENTO FINAL
     df_pos = pd.DataFrame(res_pos_editor)
     df_prop_indexed = df_prop.set_index("Tipo")
 
     for _, row in df_pos.iterrows():
-        tipo_sel = row["Tipo"]
-        # Evitamos error si el usuario escribió un nombre que no está en la tabla de arriba
+        tipo_sel = row.get("Tipo") # Usamos .get por seguridad si la fila está vacía
         if tipo_sel in df_prop_indexed.index:
             p = df_prop_indexed.loc[tipo_sel]
             dampers_finales.append({
@@ -494,11 +480,9 @@ with tab_dampers:
                 "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
                 "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
             })
-        else:
-            st.error(f"El tipo '{tipo_sel}' no está definido en la tabla de propiedades superior.")
 
 
-
+            
 # 3️⃣ ENSAMBLAJE FINAL
 config_base = {
     "eje_vertical": eje_vertical, 

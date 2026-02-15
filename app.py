@@ -35,6 +35,7 @@ class SimuladorCentrifuga:
         # --- Parámetros de la Placa ---
         p = config['placa']
         l_a, l_b, esp = p['lado_a'], p['lado_b'], p['espesor']
+        dist_A, dist_B = p.get('dist_A', 0), p.get('dist_B', 0)
         r = p['radio_agujero']
         rho = 7850 # kg/m^3 (Acero)
 
@@ -44,12 +45,14 @@ class SimuladorCentrifuga:
         # Los lados a y b se reparten en los ejes restantes.
         if self.eje_vertical == 'z':
             dx, dy, dz = l_a, l_b, esp
+            pos_placa = [dist_A, dist_B, 0]
         elif self.eje_vertical == 'y':
             dx, dy, dz = l_a, esp, l_b
+            pos_placa = [dist_A, 0, dist_B]
         else: # eje x
             dx, dy, dz = esp, l_a, l_b
+            pos_placa = [0, dist_A, dist_B]
         self.dims = {'x': dx, 'y': dy, 'z': dz}
-
 
         # 1. Masa: Masa total - Masa del agujero
         m_total = (dx * dy * dz) * rho
@@ -75,6 +78,9 @@ class SimuladorCentrifuga:
             I_final[eje] = I_b - I_a
 
         self.I_placa = [I_final['x'], I_final['y'], I_final['z']]
+
+
+
 
         # --- Componentes ---
         self.componentes = {
@@ -244,6 +250,8 @@ with col_s2:
 with col_s3:
     sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
+
+
 # --- Definir ejes de referencia ---
 st.sidebar.subheader("Configuración del Modelo")
 eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
@@ -255,6 +263,13 @@ elif eje_vertical == 'y':
     plano_rotor = ['x', 'z']
 else: # 'z'
     plano_rotor = ['x', 'y']
+
+st.sidebar.subheader("Posición de la Placa (m)")
+col_p1, col_p2 = st.sidebar.columns(2)
+with col_p1:
+    dist_A = st.number_input(f"Placa {plano_rotor[0].upper()} (dist_A)", value=0.0, step=0.1, format="%.2f")
+with col_p2:
+    dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
 
 config_base = {
     "eje_vertical": eje_vertical, 
@@ -269,6 +284,8 @@ config_base = {
         "lado_b": 2.4,        # Dimensión 2 del plano (m)
         "espesor": 0.1,       # Dimensión en el eje de gir (m)
         "radio_agujero": 0.5    # Radio del hueco central (m)
+        "dist_A": dist_A,
+        "dist_B": dist_B
     },
     "componentes": {
         "bancada": {
@@ -395,7 +412,22 @@ with col_map1:
     st.write("**Mapa de Ubicación de Dampers**")
     fig_map, ax_map = plt.subplots(figsize=(5, 5))
     # Dibujar la placa
-    rect = plt.Rectangle((-1.2, -1.2), 2.4, 2.4, color='lightgray', alpha=0.3, label='Placa Base')
+
+    # --- Dibujar la placa dinámicamente (Proyección XY) ---
+    # Se usan las dimensiones principales de la placa (lado_a, lado_b) para la visualización,
+    # y su posición se proyecta en el plano XY para el layout.
+    placa_l_a = config_base["placa"]["lado_a"]
+    placa_l_b = config_base["placa"]["lado_b"]
+    
+    # Obtenemos la posición XY del centro de la placa desde el modelo ya calculado
+    placa_pos_xy = modelo_base.componentes["placa"]["pos"][:2]
+    
+    # Calculamos la esquina inferior-izquierda para anclar el rectángulo
+    anclaje_rect = (placa_pos_xy[0] - placa_l_a / 2, placa_pos_xy[1] - placa_l_b / 2)
+    
+    # Creamos y añadimos el rectángulo que representa la placa
+    rect = plt.Rectangle(anclaje_rect, placa_l_a, placa_l_b, 
+                         color='lightgray', alpha=0.3, label='Placa Base')
     ax_map.add_patch(rect)
     
     # Dibujar dampers

@@ -408,81 +408,80 @@ A continuación se detallan los parámetros de entrada utilizados para este aná
 # --- Visualización del Layout de la Máquina ---
 col_map1, col_map2 = st.columns([1, 1])
 
-with col_map1:
-    st.write("**Mapa de Ubicación 3D de Componentes**")
+st.write("**Mapa de Ubicación de Dampers**")
+    fig_map, ax_map = plt.subplots(figsize=(5, 5))
+    # Dibujar la placa
 
-    # --- Creación del Gráfico 3D ---
-    # Nota: Se necesita from mpl_toolkits.mplot3d import Axes3D al inicio del script.
-    fig_map = plt.figure(figsize=(7, 7))
-    ax_map = fig_map.add_subplot(111, projection='3d')
-
-    # --- Dibujar la placa (cuboide) en 3D ---
-    pos_placa = modelo_base.componentes["placa"]["pos"]
-    dims = modelo_base.dims
-    dx, dy, dz = dims['x'], dims['y'], dims['z']
+    # --- Dibujar la placa dinámicamente (Proyección XY) ---
+    # Se usan las dimensiones principales de la placa (lado_a, lado_b) para la visualización,
+    # y su posición se proyecta en el plano XY para el layout.
+    placa_pos_xy = modelo_base.componentes["placa"]["pos"][:2]
+    placa_ancho_x = modelo_base.dims['x']  # Dimensión real en X
+    placa_alto_y = modelo_base.dims['y']   # Dimensión real en Y
     
-    # Vértices del cuboide
-    x_c, y_c, z_c = pos_placa
-    half_x, half_y, half_z = dx / 2, dy / 2, dz / 2
-    v = np.array([
-        [x_c - half_x, y_c - half_y, z_c - half_z], [x_c + half_x, y_c - half_y, z_c - half_z],
-        [x_c + half_x, y_c + half_y, z_c - half_z], [x_c - half_x, y_c + half_y, z_c - half_z],
-        [x_c - half_x, y_c - half_y, z_c + half_z], [x_c + half_x, y_c - half_y, z_c + half_z],
-        [x_c + half_x, y_c + half_y, z_c + half_z], [x_c - half_x, y_c + half_y, z_c + half_z]
-    ])
     
-    # Aristas del cuboide a dibujar
-    edges = [
-        (0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
-        (0, 4), (1, 5), (2, 6), (3, 7)
-    ]
+    # Calculamos la esquina inferior-izquierda para anclar el rectángulo
+    anclaje_rect = (placa_pos_xy[0] - placa_ancho_x / 2, placa_pos_xy[1] - placa_alto_y / 2)
     
-    # Dibujar aristas de la placa
-    for i, edge in enumerate(edges):
-        points = v[list(edge)]
-        label = 'Placa Base' if i == 0 else ""
-        ax_map.plot(points[:, 0], points[:, 1], points[:, 2], color='gray', alpha=0.7, label=label)
-
-    # --- Dibujar otros componentes en 3D ---
-    # Dampers
+    # Creamos y añadimos el rectángulo que representa la placa
+    rect = plt.Rectangle(anclaje_rect, placa_ancho_x, placa_alto_y, 
+    color='lightgray', alpha=0.3, label='Placa Base')
+    ax_map.add_patch(rect)
+    
+    # Dibujar dampers
     for i, d in enumerate(modelo_base.dampers):
         es_seleccionado = (i == d_idx)
-        ax_map.scatter(d.pos[0], d.pos[1], d.pos[2],
-                       c='red' if es_seleccionado else 'blue', s=100, zorder=3,
+        ax_map.scatter(d.pos[0], d.pos[1], 
+                       c='red' if es_seleccionado else 'blue', 
+                       s=200, zorder=3, 
                        label='Analizado' if es_seleccionado else None)
-        ax_map.text(d.pos[0], d.pos[1], d.pos[2] + 0.1, f"D{i}", fontsize=10, zorder=4)
+        ax_map.text(d.pos[0]+0.1, d.pos[1]+0.1, f"D{i}", fontsize=12, fontweight='bold')
 
-    # Motor Base
+    # 3. Dibujar posición del MOTOR BASE (Gris/Referencia)
     pos_motor_base = config_base["componentes"]["motor"]["pos"]
-    ax_map.scatter(pos_motor_base[0], pos_motor_base[1], pos_motor_base[2],
-                   marker='s', s=120, color='gray', alpha=0.5, label='Motor Base', zorder=4)
+    ax_map.scatter(pos_motor_base[0], pos_motor_base[1], 
+                   marker='s', s=150, color='gray', alpha=0.5, label='Motor Base', zorder=4)
 
-    # Motor Propuesta
-    pos_motor_prop = config_prop["componentes"]["motor"]["pos"]
-    ax_map.scatter(pos_motor_prop[0], pos_motor_prop[1], pos_motor_prop[2],
-                   marker='s', s=150, color='green', edgecolors='black', label='Motor Propuesta', zorder=5)
+    # 4. Dibujar posición del MOTOR PROPUESTA (Verde/Activo)
+    # Usamos el valor del slider directamente
+    ax_map.scatter(pos_x_motor_prop, 0, 
+            marker='s', s=180, color='green', edgecolors='black', label='Motor Propuesta', zorder=5)    
 
-    # Centros de Gravedad (CG)
-    _, _, _, cg_base = modelo_base.armar_matrices()
-    _, _, _, cg_prop = modelo_prop.armar_matrices()
-    ax_map.scatter(cg_base[0], cg_base[1], cg_base[2], c='purple', marker='*', s=250, label='CG Base', zorder=6)
-    ax_map.scatter(cg_prop[0], cg_prop[1], cg_prop[2], c='magenta', marker='*', s=250, label='CG Propuesta', zorder=6)
-
-    # --- Configuración final del gráfico 3D ---
-    ax_map.set_xlabel("Eje X [m]")
-    ax_map.set_ylabel("Eje Y [m]")
-    ax_map.set_zlabel("Eje Z [m]")
-    ax_map.set_title("Layout 3D de la Centrífuga")
-
-    # Establecer límites y relación de aspecto para una mejor visualización
-    ax_map.set_xlim([-2, 2])
-    ax_map.set_ylim([-2, 2])
-    ax_map.set_zlim([-1, 2])
-    ax_map.set_box_aspect([1, 1, 0.75])  # Ratio X,Y,Z
-
-    ax_map.legend()
-    ax_map.grid(True)
+    ax_map.axhline(0, color='black', lw=1); ax_map.axvline(0, color='black', lw=1)
+    ax_map.axvline(0, color='black', lw=0.8, ls='--')
+    ax_map.set_xlim(-2, 2); ax_map.set_ylim(-2, 2)
+    ax_map.set_xlabel(f"{plano_rotor[0].upper()} [m]")
+    ax_map.set_ylabel(f"{plano_rotor[1].upper()} [m]")
+    ax_map.grid(True, alpha=0.2)
     st.pyplot(fig_map)
+
+
+
+with col_map2:
+    st.write("**Distribución de Masas (Centro de Gravedad)**")
+    # Calcular CG para mostrarlo
+    M_sys, _, _, cg_final = modelo_base.armar_matrices()
+    esp_base_mm = config_base["placa"]["espesor"] * 1000  # Convertir a mm
+    st.info(f"""
+    **Centro de Gravedad Global (Base):**
+    * X: {cg_final[0]:.3f} m
+    * Y: {cg_final[1]:.3f} m
+    * Z: {cg_final[2]:.3f} m
+    
+    *Espesor de placa base: {esp_base_mm:.1f} mm*
+    """)
+
+    # Calcular CG para mostrarlo
+    M_sys, _, _, cg_final = modelo_prop.armar_matrices()
+    esp_prop_mm = config_prop["placa"]["espesor"] * 1000  # Convertir a mm
+    st.info(f"""
+    **Centro de Gravedad Global (propuesto):**
+    * X: {cg_final[0]:.3f} m
+    * Y: {cg_final[1]:.3f} m
+    * Z: {cg_final[2]:.3f} m
+    
+    *Espesor de placa base: {esp_prop_mm:.1f} mm*
+    """)
 
 st.markdown("""
     <style>

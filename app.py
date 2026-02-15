@@ -283,7 +283,7 @@ config_base = {
         "lado_a": 2.4,        # Dimensión 1 del plano (m)
         "lado_b": 2.4,        # Dimensión 2 del plano (m)
         "espesor": 0.1,       # Dimensión en el eje de gir (m)
-        "radio_agujero": 0.5    # Radio del hueco central (m)
+        "radio_agujero": 0.5,    # Radio del hueco central (m)
         "dist_A": dist_A,
         "dist_B": dist_B
     },

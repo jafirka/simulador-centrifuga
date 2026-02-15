@@ -408,7 +408,8 @@ A continuación se detallan los parámetros de entrada utilizados para este aná
 # --- Visualización del Layout de la Máquina ---
 col_map1, col_map2 = st.columns([1, 1])
 
-st.write("**Mapa de Ubicación de Dampers**")
+with col_map1:
+    st.write("**Mapa de Ubicación de Dampers**")
     fig_map, ax_map = plt.subplots(figsize=(5, 5))
     # Dibujar la placa
 
@@ -454,8 +455,6 @@ st.write("**Mapa de Ubicación de Dampers**")
     ax_map.set_ylabel(f"{plano_rotor[1].upper()} [m]")
     ax_map.grid(True, alpha=0.2)
     st.pyplot(fig_map)
-
-
 
 with col_map2:
     st.write("**Distribución de Masas (Centro de Gravedad)**")

@@ -288,10 +288,10 @@ st.sidebar.header("Parámetros de Diseño")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
+distancia_eje = st.sidebar.number_input("Distancia masa desbalanceo en el eje (m)", value=0.8)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
-st.sidebar.subheader("Posición del Sensor (m)")
-st.sidebar.text("Ubicacion estandar x=0; y=0.8; z=0")
+st.sidebar.text("Posición del Sensor (m)")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
 with col_s1:
     sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
@@ -487,7 +487,7 @@ with tab_dampers:
 config_base = {
     "eje_vertical": eje_vertical, 
     "plano_rotor": plano_rotor,
-    "excitacion": {"distancia_eje": 1.2, "m_unbalance": m_unbalance, "e_unbalance": 0.8},
+    "excitacion": {"distancia_eje": distancia_eje, "m_unbalance": m_unbalance, "e_unbalance": 0.8},
     "placa": {"lado_a": lado_a, "lado_b": lado_b, "espesor": espesor, "radio_agujero": radio_agujero, "dist_A": dist_A, "dist_B": dist_B},
     "componentes": comp_editados,
     "dampers": dampers_finales,

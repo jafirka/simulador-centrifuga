@@ -314,81 +314,103 @@ comp_editados = {}
 
 tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
 
-# 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3)
+# 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:
     subtabs = st.tabs(["Bancada", "Accionamiento", "Cesto", "Placa inercia"])
+    
+    # Mapeo de nombres para session_state
+    nombres_llaves = ["bancada", "motor", "cesto"]
 
-# 1. Mantenemos el bucle para los componentes estándar (Bancada, Motor, Cesto)
-    componentes_lista = [
-        ("bancada", subtabs[0], [3542.0, 0.194, 0.0, 0.859], [3235.0, 3690.0, 2779.0]),
-        ("motor", subtabs[1], [940.0, 1.6, 0.0, 1.1], [178.0, 392.0, 312.0]),
-        ("cesto", subtabs[2], [1980.0, 0.5, 0.0, 0.0], [178.0, 392.0, 312.0])
-    ]
-
-    for nombre, subtab, def_pos, def_iner in componentes_lista:
-        with subtab:
+    for i, nombre in enumerate(nombres_llaves):
+        with subtabs[i]:
+            # ✅ RECUPERAR DATOS: Priorizamos la memoria de la sesión
+            datos_memoria = st.session_state.componentes_data[nombre]
+            
             c_m, c_p = st.columns([1, 2])
             with c_m:
-                m_val = st.number_input(f"Masa {nombre} (kg)", value=def_pos[0], key=f"m_{nombre}")
+                m_val = st.number_input(
+                    f"Masa {nombre} (kg)", 
+                    value=float(datos_memoria["m"]), 
+                    key=f"m_input_{nombre}"
+                )
             with c_p:
                 cx, cy, cz = st.columns(3)
-                px = cx.number_input(f"X [m]", value=def_pos[1], key=f"px_{nombre}")
-                py = cy.number_input(f"Y [m]", value=def_pos[2], key=f"py_{nombre}")
-                pz = cz.number_input(f"Z [m]", value=def_pos[3], key=f"pz_{nombre}")
+                px = cx.number_input(f"X [m]", value=float(datos_memoria["pos"][0]), key=f"px_in_{nombre}")
+                py = cy.number_input(f"Y [m]", value=float(datos_memoria["pos"][1]), key=f"py_in_{nombre}")
+                pz = cz.number_input(f"Z [m]", value=float(datos_memoria["pos"][2]), key=f"pz_in_{nombre}")
 
             st.write(f"**Matriz de Inercia (3x3) para {nombre} [kg·m²]**")
             
-            # Inicializamos la matriz 3x3 únicamente con la diagonal
-            m_3x3 = np.zeros((3, 3))
-            np.fill_diagonal(m_3x3, def_iner)
+            # ✅ EDITOR DE MATRIZ: Carga lo que hay en memoria (I)
+            # Convertimos a array de numpy por seguridad
+            iner_inicial = np.array(datos_memoria["I"])
             
-            # Editor de matriz compacto
             df_iner_3x3 = st.data_editor(
-                m_3x3,
+                iner_inicial,
                 key=f"matrix_3x3_{nombre}",
                 use_container_width=True,
                 column_config={"0": "X", "1": "Y", "2": "Z"}
             )
             
-            comp_editados[nombre] = {
+            # ✅ ACTUALIZAR MEMORIA: Guardamos los cambios inmediatamente
+            st.session_state.componentes_data[nombre] = {
                 "m": m_val, 
                 "pos": [px, py, pz], 
-                "I": df_iner_3x3  # Matriz 3x3 completa
+                "I": df_iner_3x3.tolist() if isinstance(df_iner_3x3, np.ndarray) else df_iner_3x3
             }
 
+            # Esto es lo que usará config_base al final del script
+            comp_editados[nombre] = st.session_state.componentes_data[nombre]
+
+
 # 2. ✅ NUEVA SUBTAB: Datos de la Placa de Inercia
-    with subtabs[3]:
-        st.write("### Parámetros Geométricos de la Placa")
+with subtabs[3]:
+    st.write("### Parámetros Geométricos de la Placa")
+    
+    # Creamos las columnas primero para organizar la interfaz
+    col_g1, col_g2 = st.columns(2)
+    
+    with col_g1:
+        # Usamos el valor guardado en session_state como 'value'
+        lado_a = st.number_input("Lado A [m]", 
+                                 value=st.session_state.placa_data["lado_a"], 
+                                 step=0.1, format="%.2f", key="input_lado_a")
         
-        lado_a = st.number_input("Lado A", value=st.session_state.placa_data["lado_a"])
-        lado_b = st.number_input("Lado B", value=st.session_state.placa_data["lado_b"])
-        espesor = st.number_input("Espesor", value=st.session_state.placa_data["espesor"])
-        radio_agujero = st.number_input("Radio_agujero", value=st.session_state.placa_data["radio_agujero"]) 
-        dist_A = st.number_input("Dist A", value=st.session_state.placa_data["dist_A"])
-        dist_B = st.number_input("Dist B", value=st.session_state.placa_data["dist_B"])
+        lado_b = st.number_input("Lado B [m]", 
+                                 value=st.session_state.placa_data["lado_b"], 
+                                 step=0.1, format="%.2f", key="input_lado_b")
+    
+    with col_g2:
+        espesor = st.number_input("Espesor [m]", 
+                                  value=st.session_state.placa_data["espesor"], 
+                                  step=0.01, format="%.3f", key="input_espesor")
         
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            lado_a = st.number_input("Lado A [m]", value=2.4, step=0.1, format="%.2f")
-            lado_b = st.number_input("Lado B [m]", value=2.4, step=0.1, format="%.2f")
-        
-        with col_g2:
-            espesor = st.number_input("Espesor [m]", value=0.1, step=0.01, format="%.3f")
-            radio_agujero = st.number_input("Radio Agujero Central [m]", value=0.5, step=0.05, format="%.2f")
+        radio_agujero = st.number_input("Radio Agujero Central [m]", 
+                                        value=st.session_state.placa_data["radio_agujero"], 
+                                        step=0.05, format="%.2f", key="input_radio")
 
-        st.write("### Posición del Centro de la Placa")
-        col_p1, col_p2 = st.columns(2)
-        # Usamos los nombres dist_A y dist_B que ya tenías en tu lógica
-        with col_p1:
-            dist_A = st.number_input(f"Desfase en {plano_rotor[0].upper()} (dist_A)", value=0.0, step=0.1)
-        with col_p2:
-            dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1)
+    st.write("### Posición del Centro de la Placa")
+    col_p1, col_p2 = st.columns(2)
+    
+    with col_p1:
+        dist_A = st.number_input(f"Desfase en {horizontales[0].upper()} (dist_A)", 
+                                 value=st.session_state.placa_data["dist_A"], 
+                                 step=0.1, key="input_dist_A")
+    with col_p2:
+        dist_B = st.number_input(f"Desfase en {horizontales[1].upper()} (dist_B)", 
+                                 value=st.session_state.placa_data["dist_B"], 
+                                 step=0.1, key="input_dist_B")
 
-        st.session_state.placa_data.update({"lado_a": lado_a, "lado_b": lado_b, "espesor": espesor, "radio_agujero": radio_agujero, "dist_A": dist_A, "dist_B": dist_B
-            })
-
-
-
+    # ✅ ACTUALIZACIÓN CRÍTICA: Guardamos los valores actuales en el session_state
+    # Esto permite que al presionar "Descargar JSON", los datos estén al día.
+    st.session_state.placa_data.update({
+        "lado_a": lado_a,
+        "lado_b": lado_b,
+        "espesor": espesor,
+        "radio_agujero": radio_agujero,
+        "dist_A": dist_A,
+        "dist_B": dist_B
+    })
 
 
 # 2️⃣ GESTIÓN DE DAMPERS

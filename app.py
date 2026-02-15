@@ -393,11 +393,11 @@ with subtabs[3]:
     col_p1, col_p2 = st.columns(2)
     
     with col_p1:
-        dist_A = st.number_input(f"Desfase en {horizontales[0].upper()} (dist_A)", 
+        dist_A = st.number_input(f"Desfase en {plano_rotor[0].upper()} (dist_A)", 
                                  value=st.session_state.placa_data["dist_A"], 
                                  step=0.1, key="input_dist_A")
     with col_p2:
-        dist_B = st.number_input(f"Desfase en {horizontales[1].upper()} (dist_B)", 
+        dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", 
                                  value=st.session_state.placa_data["dist_B"], 
                                  step=0.1, key="input_dist_B")
 

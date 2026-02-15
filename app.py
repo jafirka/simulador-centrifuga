@@ -409,24 +409,31 @@ A continuación se detallan los parámetros de entrada utilizados para este aná
 col_map1, col_map2 = st.columns([1, 1])
 
 with col_map1:
-    st.write("**Mapa de Ubicación de Dampers**")
+    st.write("**Mapa de Ubicación de Dampers (Esquema en plano XY)**")
     fig_map, ax_map = plt.subplots(figsize=(5, 5))
-    # Dibujar la placa
 
-    # --- Dibujar la placa dinámicamente (Proyección XY) ---
-    # Se usan las dimensiones principales de la placa (lado_a, lado_b) para la visualización,
-    # y su posición se proyecta en el plano XY para el layout.
-    placa_pos_xy = modelo_base.componentes["placa"]["pos"][:2]
-    placa_ancho_x = modelo_base.dims['x']  # Dimensión real en X
-    placa_alto_y = modelo_base.dims['y']   # Dimensión real en Y
+    # --- Lógica condicional para dibujar la placa esquemáticamente ---
+    eje_vertical = config_base["eje_vertical"]
+    lado_a = config_base["placa"]["lado_a"]
+    lado_b = config_base["placa"]["lado_b"]
+    pos_placa_xy = modelo_base.componentes["placa"]["pos"][:2]
+    # Asignar dimensiones al gráfico 2D según la orientación del modelo
+    if eje_vertical == 'z':
+        # Eje de rotación Z: la placa está en el plano XY. (ancho=lado_a, alto=lado_b)
+        anclaje_rect = (pos_placa_xy[0] - lado_a / 2, pos_placa_xy[1] - lado_a / 2)
+    elif eje_vertical == 'x':
+        # Eje de rotación X: la placa está en el plano YZ.
+        # En el mapa XY, representamos la dimensión Y como la altura y la Z como el ancho.
+        anclaje_rect = (pos_placa_xy[1] - lado_a / 2, pos_placa_xy[2] - lado_a / 2)
+    else: # eje_vertical == 'y'
+        # Eje de rotación Y: la placa está en el plano XZ.
+        # En el mapa XY, representamos la dimensión X como el ancho y la Z como la altura.
+        anclaje_rect = (pos_placa_xy[0] - lado_a / 2, pos_placa_xy[2] - lado_a / 2)
+
     
-    
-    # Calculamos la esquina inferior-izquierda para anclar el rectángulo
-    anclaje_rect = (placa_pos_xy[0] - placa_ancho_x / 2, placa_pos_xy[1] - placa_alto_y / 2)
-    
-    # Creamos y añadimos el rectángulo que representa la placa
-    rect = plt.Rectangle(anclaje_rect, placa_ancho_x, placa_alto_y, 
-    color='lightgray', alpha=0.3, label='Placa Base')
+    # Crear y añadir el rectángulo que representa la placa
+    rect = plt.Rectangle(anclaje_rect, lado_a, lado_b, 
+                         color='lightgray', alpha=0.3, label='Placa Base')
     ax_map.add_patch(rect)
     
     # Dibujar dampers

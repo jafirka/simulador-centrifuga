@@ -218,15 +218,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
           # aceleración [g]
           S_acel[eje].append((w**2) * np.abs(U_sensor[i])/9.81)
     
-    # Organizar los resultados en un diccionario para mayor claridad
-    resultados = {
-        "rpm_range": rpm_range,
-        "damper": {"desplazamiento": D_desp, "fuerza": D_fuerza},
-        "cg": {"aceleracion": acel_cg, "velocidad": vel_cg},
-        "sensor": {"desplazamiento": S_desp, "velocidad": S_vel, "aceleracion": S_acel}
-        }
-    return resultados
-    #return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel
+    return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel
 
 
 
@@ -236,7 +228,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
 import copy
 # --- 3. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
-st.title("Simulador Interactivo de Centrífuga 300F1600 x 700 - Departamento de Ingenieria de Riera Nadeu")
+st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
 st.markdown("Modifica los valores en la barra lateral para ver el impacto en las vibraciones.")
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
@@ -278,6 +270,45 @@ with col_p1:
     dist_A = st.number_input(f"Placa {plano_rotor[0].upper()} (dist_A)", value=0.0, step=0.1, format="%.2f")
 with col_p2:
     dist_B = st.number_input(f"Placa {plano_rotor[1].upper()} (dist_B)", value=0.0, step=0.1, format="%.2f")
+
+# --- NUEVA SECCIÓN: PARÁMETROS MODIFICABLES ---
+st.header("Parámetros del Modelo")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.subheader("Masas (kg)")
+    m_bancada = st.number_input("Masa Bancada", value=3542.0, step=10.0, format="%.1f")
+    m_motor = st.number_input("Masa Motor", value=940.0, step=10.0, format="%.1f")
+    m_cesto = st.number_input("Masa Cesto", value=1980.0, step=10.0, format="%.1f")
+
+with col2:
+    st.subheader("Posiciones (m)")
+    pos_bancada_x = st.number_input("Pos. Bancada X", value=0.194, step=0.1, format="%.3f")
+    pos_bancada_y = st.number_input("Pos. Bancada Y", value=0.0, step=0.1, format="%.3f")
+    pos_bancada_z = st.number_input("Pos. Bancada Z", value=0.859, step=0.1, format="%.3f")
+
+    pos_motor_x = st.number_input("Pos. Motor X", value=1.6, step=0.1, format="%.3f")
+    pos_motor_y = st.number_input("Pos. Motor Y", value=0.0, step=0.1, format="%.3f")
+    pos_motor_z = st.number_input("Pos. Motor Z", value=1.1, step=0.1, format="%.3f")
+
+    pos_cesto_x = st.number_input("Pos. Cesto X", value=0.5, step=0.1, format="%.3f")
+    pos_cesto_y = st.number_input("Pos. Cesto Y", value=0.0, step=0.1, format="%.3f")
+    pos_cesto_z = st.number_input("Pos. Cesto Z", value=0.0, step=0.1, format="%.3f")
+
+with col3:
+    st.subheader("Inercias (kg.m^2)")
+    I_bancada_xx = st.number_input("Inercia Bancada XX", value=3235.0, step=10.0, format="%.1f")
+    I_bancada_yy = st.number_input("Inercia Bancada YY", value=3690.0, step=10.0, format="%.1f")
+    I_bancada_zz = st.number_input("Inercia Bancada ZZ", value=2779.0, step=10.0, format="%.1f")
+
+    I_motor_xx = st.number_input("Inercia Motor XX", value=178.0, step=10.0, format="%.1f")
+    I_motor_yy = st.number_input("Inercia Motor YY", value=392.0, step=10.0, format="%.1f")
+    I_motor_zz = st.number_input("Inercia Motor ZZ", value=312.0, step=10.0, format="%.1f")
+
+    I_cesto_xx = st.number_input("Inercia Cesto XX", value=178.0, step=10.0, format="%.1f")
+    I_cesto_yy = st.number_input("Inercia Cesto YY", value=392.0, step=10.0, format="%.1f")
+    I_cesto_zz = st.number_input("Inercia Cesto ZZ", value=312.0, step=10.0, format="%.1f")
+
 
 config_base = {
     "eje_vertical": eje_vertical, 
@@ -389,14 +420,8 @@ ejes_lbl = {horizontales[0]: "Horizontal 1", horizontales[1]: "Horizontal 2", ve
 rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
 idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
 
-#rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
-#rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
-# Ejecutamos la simulación para el modelo base y el propuesto
-resultados_base = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
-resultados_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
-# Extraemos el rango de RPM (es el mismo para ambos)
-rpm_range = resultados_base["rpm_range"]
-
+rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
+rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
 
 # ==========================================
 # 📄 INTRODUCCIÓN Y MEMORIA DE CÁLCULO

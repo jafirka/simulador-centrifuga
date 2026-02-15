@@ -5,9 +5,8 @@ from scipy import linalg
 import math
 
 # ==========================================
-# 1️⃣ TUS CLASES (Copia aquí Damper y SimuladorCentrifuga)
+# 1️⃣ TUS CLASES
 # ==========================================
-# [Aquí pegas tal cual las clases que definiste en los bloques 1 a 11 de tu archivo] [cite: 1, 3, 7]
 
 class Damper:
     def __init__(self, nombre, pos, kx, ky, kz, cx, cy, cz):
@@ -245,9 +244,16 @@ with col_s3:
     sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
 # --- Definir ejes de referencia ---
+st.sidebar.subheader("Configuración del Modelo")
+eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
 
-eje_vertical = "z"  # eje de giro
-plano_rotor = ["x", "y"]  # plano perpendicular al eje de giro
+# Determinar el plano del rotor en función del eje vertical
+if eje_vertical == 'x':
+    plano_rotor = ['y', 'z']
+elif eje_vertical == 'y':
+    plano_rotor = ['x', 'z']
+else: # 'z'
+    plano_rotor = ['x', 'y']
 
 config_base = {
     "ejes": {
@@ -706,10 +712,3 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
-
-
-
-
-
-
-

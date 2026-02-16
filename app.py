@@ -346,12 +346,13 @@ with tab_config:
         # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar
         st.markdown(f"**Material:** Acero ($\rho$ = 7850 kg/m³)")
 
-    # Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
-    st.session_state["eje_vertical_val"] = eje_vertical
-    st.session_state["distancia_eje_val"] = distancia_eje
-    st.session_state["sensor_pos_val"] = [sensor_x, sensor_y, sensor_z] 
-
     st.divider()
+
+# Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
+st.session_state["eje_vertical_val"] = eje_vertical
+st.session_state["distancia_eje_val"] = distancia_eje
+st.session_state["sensor_pos_val"] = [sensor_x, sensor_y, sensor_z] 
+
 
 
 
@@ -442,12 +443,12 @@ with subtabs[3]:
     
     with col_p1:
         dist_A = st.number_input(f"Desfase en {plano_rotor[0].upper()} (dist_A)", 
-                                 value=st.session_state.placa_data["dist_A"], 
-                                 step=0.1, key="input_dist_A")
+                                value=float(st.session_state.placa_data.get("dist_A", 0.0)), # Corregido
+                                step=0.1, key="input_dist_A")
     with col_p2:
         dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", 
-                                 value=st.session_state.placa_data["dist_B"], 
-                                 step=0.1, key="input_dist_B")
+                                value=float(st.session_state.placa_data.get("dist_B", 0.0)), # Corregido
+                                step=0.1, key="input_dist_B")
 
     # ✅ ACTUALIZACIÓN CRÍTICA: Guardamos los valores actuales en el session_state
     # Esto permite que al presionar "Descargar JSON", los datos estén al día.
@@ -595,27 +596,26 @@ if archivo_subido is not None:
         datos_cargados = json.load(archivo_subido)
         
         if st.sidebar.button("🚀 Aplicar Configuración Completa"):
-            # --- PASO 1: Limpiar TODO el session_state ---
-            for key in list(st.session_state.keys()):
-                # Opcional: mantener el archivo subido para que no desaparezca el widget
-                if key != "archivo_subido_key": 
-                    del st.session_state[key]
+        # 1. Guardamos los datos del JSON en una variable temporal
+            nuevos_datos = copy.deepcopy(datos_cargados)
             
-            # --- PASO 2: Inyectar los datos del JSON al session_state ---
-            # Esto repuebla los diccionarios base
-            for key, value in datos_cargados.items():
+            # 2. Limpiamos TODO el session_state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            
+            # 3. Inyectamos los nuevos datos directamente
+            for key, value in nuevos_datos.items():
                 st.session_state[key] = value
             
-            # --- PASO 3: Sincronizar variables de sistema (Ejes, RPM, etc.) ---
-            # Si guardaste 'configuracion_sistema', creamos las llaves individuales
-            if "configuracion_sistema" in datos_cargados:
-                cfg = datos_cargados["configuracion_sistema"]
+            # 4. Sincronización explícita de variables de sistema
+            if "configuracion_sistema" in nuevos_datos:
+                cfg = nuevos_datos["configuracion_sistema"]
                 st.session_state["eje_vertical_val"] = cfg.get("eje_vertical", "z")
                 st.session_state["distancia_eje_val"] = cfg.get("distancia_eje", 0.8)
-                
-                # Sincronizar también las posiciones del sensor
                 s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
-                st.session_state["sensor_x_val"], st.session_state["sensor_y_val"], st.session_state["sensor_z_val"] = s_pos
+                st.session_state["sensor_x_val"] = s_pos[0]
+                st.session_state["sensor_y_val"] = s_pos[1]
+                st.session_state["sensor_z_val"] = s_pos[2]
 
             st.sidebar.success("✅ ¡Sistema reseteado y cargado!")
             st.rerun() 

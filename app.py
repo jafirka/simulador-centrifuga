@@ -295,17 +295,6 @@ rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
 
 
-# --- Definir ejes de referencia ---
-eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
-
-# Determinar el plano del rotor en función del eje vertical
-if eje_vertical == 'x':
-    plano_rotor = ['y', 'z']
-elif eje_vertical == 'y':
-    plano_rotor = ['z', 'x']
-else: # 'z'
-    plano_rotor = ['x', 'y']
-
 # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
 st.sidebar.text("Posición del Sensor de velocidad/aceleracion(m)")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
@@ -359,11 +348,6 @@ with tab_config:
         st.metric("Gravedad", "9.81 m/s²")
 
     st.divider()
-    
-    # Mostrar el Diccionario de Configuración (opcional, muy útil para debug)
-    with st.expander("🔍 Ver JSON de configuración actual"):
-        st.json(config_base)
-
 
 
 

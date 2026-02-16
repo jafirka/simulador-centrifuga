@@ -295,15 +295,6 @@ rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
 
 
-# --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
-st.sidebar.text("Posición del Sensor de velocidad/aceleracion(m)")
-col_s1, col_s2, col_s3 = st.sidebar.columns(3)
-with col_s1:
-    sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
-with col_s2:
-    sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
-with col_s3:
-    sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración del Sistema")
@@ -341,6 +332,15 @@ with tab_config:
         else: # 'z'
             plano_rotor = ['x', 'y']
        
+        # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
+        st.text("Posición del Sensor de velocidad/aceleracion(m)")
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
+        with col_s2:
+            sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
+        with col_s3:
+            sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
     with col_sys2:
         # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar

@@ -270,7 +270,8 @@ if 'configuracion_sistema' not in st.session_state:
         "distancia_eje": 0.8,
         "m_unbalance": 1.6,
         "rpm_nominal": 1100,
-        "sensor_pos": [0.0, 0.8, 0.0]
+        "sensor_pos": [0.0, 0.8, 0.0],
+        "diametro_cesto": 1250  # Valor por defecto (mm)
     }
 
 if 'dampers_prop_data' not in st.session_state:
@@ -343,8 +344,6 @@ with tab_config:
     
     with col_sys1:
         # --- Definir ejes de referencia ---
-
-
         eje_vertical = st.selectbox(
             "Eje...", ('x','y','z'), 
             index=('x','y','z').index(st.session_state.configuracion_sistema["eje_vertical"]))
@@ -356,6 +355,27 @@ with tab_config:
             step=0.01,
             format="%.2f"
         )
+
+        # --- DENTRO DE tab_config ---
+        opciones_diametro = [800, 1000, 1250, 1400, 1600, 1800, 2000]
+
+        # 1. Recuperamos el valor del log para posicionar el índice
+        diam_actual = st.session_state.configuracion_sistema.get("diametro_cesto", 1250)
+        idx_diam = opciones_diametro.index(diam_actual) if diam_actual in opciones_diametro else 2
+
+        diametro_sel = st.selectbox(
+            "Tamaño de cesto (Diámetro en mm):", 
+            opciones_diametro, 
+            index=idx_diam,
+            key="widget_diametro_cesto"
+        )
+
+        # 2. Log automático y cálculo derivado
+        st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
+
+        # 3. Calculamos la excentricidad (Radio en metros)
+        e_unbalance = (diametro_sel / 1000) / 2
+
 
         # Determinar el plano del rotor en función del eje vertical
         if eje_vertical == 'x':
@@ -417,7 +437,7 @@ with tab_comp:
             pz = cz.number_input(f"Z [m]", value=float(pos_actual[2]), format="%.3f", key=f"z_{nombre}")
             
             st.write(f"**Matriz de Inercia (3x3) [kg·m²]**")
-            
+
             # El data_editor es excelente para matrices
             df_iner_3x3 = st.data_editor(
                 np.array(datos_memoria["I"]),

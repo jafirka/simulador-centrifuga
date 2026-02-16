@@ -320,6 +320,7 @@ with tab_config:
     with col_sys1:
         # --- Definir ejes de referencia ---
         eje_vertical = st.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
+        distancia_eje = st.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
         # Determinar el plano del rotor en función del eje vertical
         if eje_vertical == 'x':
             plano_rotor = ['y', 'z']
@@ -327,25 +328,11 @@ with tab_config:
             plano_rotor = ['z', 'x']
         else: # 'z'
             plano_rotor = ['x', 'y']
-        st.info(f"**Eje de Rotación seleccionado:** Eje {eje_vertical.upper()}")
-        st.write(f"Para mantener un sistema de coordenadas de **mano derecha**, el plano del rotor se define como:")
-        st.latex(rf"\vec{{V}} = {eje_vertical.upper()} \implies \text{{Plano: }} {plano_rotor[0].upper()} - {plano_rotor[1].upper()}")
-        
-        # Explicación de la fuerza centrífuga
-        st.write("**Dinámica de Excitación:**")
-        st.markdown(f"""
-        * **Fase 0°:** Fuerza en eje {plano_rotor[0].upper()}
-        * **Fase 90°:** Fuerza en eje {plano_rotor[1].upper()}
-        * **Momento:** Generado por la distancia vertical al CG.
-        """)
-        distancia_eje = st.sidebar.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
-        
+       
 
     with col_sys2:
         # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar
-        st.metric("Masa Desbalanceo", f"{m_unbalance} kg")
-        st.metric("RPM Operación", f"{rpm_obj} RPM")
-        st.metric("Gravedad", "9.81 m/s²")
+        st.markdown(f"**Material:** Acero ($\rho$ = 7850 kg/m³)")
 
     st.divider()
 
@@ -907,8 +894,6 @@ A continuación se detallan los parámetros de entrada utilizados para este aná
 
 * **Masa de Desbalanceo:** {m_unbalance:.2f} kg
 * **RPM de Operación:** {rpm_obj} RPM
-* **Material de la Placa:** Acero (ρ = 7850 kg/m³)
-* **Configuración de Dampers:** 4 apoyos elásticos (Tipo: {lista_dampers_config[0]['tipo']} y {lista_dampers_config[2]['tipo']})
 ---
 """)
 

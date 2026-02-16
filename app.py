@@ -9,37 +9,6 @@ import pandas as pd
 import re
 
 
-# --- INICIALIZACIÓN DE SESSION STATE ---
-# Solo se ejecuta la primera vez que se abre la app
-if 'componentes_data' not in st.session_state:
-    st.session_state.componentes_data = {
-        "bancada": {"m": 3542.0, "pos": [0.194, 0.0, 0.859], "I": [[3235.0, 0, 0], [0, 3690.0, 0], [0, 0, 2779.0]]},
-        "motor": {"m": 940.0, "pos": [1.6, 0.0, 1.1], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]},
-        "cesto": {"m": 1980.0, "pos": [0.5, 0.0, 0.0], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]}
-    }
-
-if 'dampers_prop_data' not in st.session_state:
-    st.session_state.dampers_prop_data = [
-        {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
-        {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
-    ]
-
-if 'dampers_pos_data' not in st.session_state:
-    st.session_state.dampers_pos_data = [
-        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
-        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
-        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
-        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
-    ]
-
-if 'placa_data' not in st.session_state:
-    st.session_state.placa_data = {
-        "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, 
-        "radio_agujero": 0.5, "dist_A": 0.0, "dist_B": 0.0
-    }
-
-
-
 # ==========================================
 # 1️⃣ TUS CLASES
 # ==========================================

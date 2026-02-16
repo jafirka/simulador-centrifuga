@@ -565,8 +565,8 @@ st.sidebar.header("💾 Gestión de Archivos")
 # Preparamos el diccionario con todo lo que hay en memoria actualmente
 datos_a_exportar = {
     "configuracion_sistema": {
-        "eje_vertical": eje_vertical_val,
-        "distancia_eje": distancia_eje_val,
+        "eje_vertical": st.session_state["eje_vertical_val"],
+        "distancia_eje": st.session_state["distancia_eje_val"],
         "sensor_pos": st.session_state["sensor_pos_val"]
     },
     "componentes_data": st.session_state.componentes_data,

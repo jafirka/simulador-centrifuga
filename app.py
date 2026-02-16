@@ -585,7 +585,7 @@ config_base = {
     "excitacion": {
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"], 
         "m_unbalance": m_unbalance, # Viene del slider de la sidebar
-        "e_unbalance": 0.8 # Valor constante de diseño
+        "e_unbalance": e_unbalance # Valor constante de diseño
     },
     "placa": st.session_state.placa_data,
     "componentes": st.session_state.componentes_data,
@@ -630,6 +630,7 @@ datos_a_exportar = {
         "eje_vertical": st.session_state.configuracion_sistema["eje_vertical"],
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"],
         "m_unbalance": m_unbalance, # El valor del slider lateral
+        "diametro_cesto": st.session_state.configuracion_sistema["diametro_cesto"], # <-- IMPORTANTE
         "rpm_nominal": rpm_obj,     # El valor del input lateral
         "sensor_pos": st.session_state.configuracion_sistema["sensor_pos"]
     },

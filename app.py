@@ -336,17 +336,23 @@ with tab_config:
         st.text("Posición del Sensor de velocidad/aceleracion(m)")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
-            sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
+            sensor_x = st.number_input("X", value=float(st.session_state.get("sensor_x_val", 0.0)), key="s_x")
         with col_s2:
-            sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
+            sensor_y = st.number_input("Y", value=float(st.session_state.get("sensor_y_val", 0.8)), key="s_y")
         with col_s3:
-            sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
+            sensor_z = st.number_input("Z", value=float(st.session_state.get("sensor_z_val", 0.0)), key="s_z")
 
     with col_sys2:
         # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar
         st.markdown(f"**Material:** Acero ($\rho$ = 7850 kg/m³)")
 
+    # Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
+    st.session_state["eje_vertical_val"] = eje_vertical
+    st.session_state["distancia_eje_val"] = distancia_eje
+    st.session_state["sensor_pos_val"] = [sensor_x, sensor_y, sensor_z] 
+
     st.divider()
+
 
 
 
@@ -370,14 +376,16 @@ with tab_comp:
             with c_m:
                 m_val = st.number_input(
                     f"Masa {nombre} (kg)", 
-                    value=float(datos_memoria["m"]), 
-                    key=f"m_input_{nombre}"
+                    value=float(st.session_state.componentes_data[nombre].get("m", 0.0)), 
+                    key=f"m_input_{nombre}" # Esta key se limpia al importar
                 )
             with c_p:
                 cx, cy, cz = st.columns(3)
-                px = cx.number_input(f"X [m]", value=float(datos_memoria["pos"][0]), key=f"px_in_{nombre}")
-                py = cy.number_input(f"Y [m]", value=float(datos_memoria["pos"][1]), key=f"py_in_{nombre}")
-                pz = cz.number_input(f"Z [m]", value=float(datos_memoria["pos"][2]), key=f"pz_in_{nombre}")
+                # Leemos las posiciones del array 'pos' del JSON
+                pos_actual = st.session_state.componentes_data[nombre].get("pos", [0.0, 0.0, 0.0])
+                px = cx.number_input(f"X [m]", value=float(pos_actual[0]), key=f"px_in_{nombre}")
+                py = cy.number_input(f"Y [m]", value=float(pos_actual[1]), key=f"py_in_{nombre}")
+                pz = cz.number_input(f"Z [m]", value=float(pos_actual[2]), key=f"pz_in_{nombre}")
 
             st.write(f"**Matriz de Inercia (3x3) para {nombre} [kg·m²]**")
             
@@ -423,11 +431,10 @@ with subtabs[3]:
     
     with col_g2:
         espesor = st.number_input("Espesor [m]", 
-                                  value=st.session_state.placa_data["espesor"], 
-                                  step=0.01, format="%.3f", key="input_espesor")
-        
-        radio_agujero = st.number_input("Radio Agujero Central [m]", 
-                                        value=st.session_state.placa_data["radio_agujero"], 
+                                    value=float(st.session_state.placa_data.get("espesor", 0.1)), 
+                                    step=0.01, format="%.3f", key="input_espesor")
+        radio_agujero = st.number_input("Radio Agujero [m]", 
+                                        value=float(st.session_state.placa_data.get("radio_agujero", 0.5)), 
                                         step=0.05, format="%.2f", key="input_radio")
 
     st.write("### Posición del Centro de la Placa")
@@ -558,9 +565,9 @@ st.sidebar.header("💾 Gestión de Archivos")
 # Preparamos el diccionario con todo lo que hay en memoria actualmente
 datos_a_exportar = {
     "configuracion_sistema": {
-        "eje_vertical": eje_vertical,
-        "distancia_eje": distancia_eje,
-        "sensor_pos": [sensor_x, sensor_y, sensor_z]
+        "eje_vertical": eje_vertical_val,
+        "distancia_eje": distancia_eje_val,
+        "sensor_pos": st.session_state["sensor_pos_val"]
     },
     "componentes_data": st.session_state.componentes_data,
     "dampers_prop_data": st.session_state.dampers_prop_data,
@@ -578,44 +585,41 @@ st.sidebar.download_button(
 )
 st.sidebar.write("---")
 
-# --- FUNCIONALIDAD DE IMPORTAR (Upload) ---
+
+
+# --- FUNCIONALIDAD DE IMPORTAR (Generalizada) ---
 archivo_subido = st.sidebar.file_uploader("📂 Cargar archivo JSON", type=["json"])
+
 if archivo_subido is not None:
     try:
         datos_cargados = json.load(archivo_subido)
         
-        # Botón de confirmación para inyectar los datos
-        if st.sidebar.button("✅ Aplicar datos del archivo"):
-            # Validamos que el archivo tenga las llaves necesarias
-            required_keys = ["componentes_data", "dampers_prop_data", "dampers_pos_data", "placa_data"]
-            if all(key in datos_cargados for key in required_keys):
+        if st.sidebar.button("🚀 Aplicar Configuración Completa"):
+            # --- PASO 1: Limpiar TODO el session_state ---
+            for key in list(st.session_state.keys()):
+                # Opcional: mantener el archivo subido para que no desaparezca el widget
+                if key != "archivo_subido_key": 
+                    del st.session_state[key]
+            
+            # --- PASO 2: Inyectar los datos del JSON al session_state ---
+            # Esto repuebla los diccionarios base
+            for key, value in datos_cargados.items():
+                st.session_state[key] = value
+            
+            # --- PASO 3: Sincronizar variables de sistema (Ejes, RPM, etc.) ---
+            # Si guardaste 'configuracion_sistema', creamos las llaves individuales
+            if "configuracion_sistema" in datos_cargados:
+                cfg = datos_cargados["configuracion_sistema"]
+                st.session_state["eje_vertical_val"] = cfg.get("eje_vertical", "z")
+                st.session_state["distancia_eje_val"] = cfg.get("distancia_eje", 0.8)
                 
-                # Actualizamos el Session State
-                st.session_state.componentes_data = datos_cargados["componentes_data"]
-                st.session_state.dampers_prop_data = datos_cargados["dampers_prop_data"]
-                st.session_state.dampers_pos_data = datos_cargados["dampers_pos_data"]
-                st.session_state.placa_data = datos_cargados["placa_data"]
+                # Sincronizar también las posiciones del sensor
+                s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
+                st.session_state["sensor_x_val"], st.session_state["sensor_y_val"], st.session_state["sensor_z_val"] = s_pos
 
-                # 2. Actualizamos Configuración de Sistema (si existe en el JSON)
-                if "configuracion_sistema" in datos_cargados:
-                    cfg = datos_cargados["configuracion_sistema"]
-                    
-                    # Guardamos en session_state para que los widgets los tomen como default
-                    # Nota: Para que esto funcione, tus widgets (slider, selectbox) deben tener
-                    # su parámetro 'value' o 'index' apuntando a estos st.session_state.
-                    st.session_state.eje_vertical_val = cfg.get("eje_vertical", "z")
-                    st.session_state.distancia_eje_val = cfg.get("distancia_eje", 0.8)
-                    # Sensor
-                    s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
-                    st.session_state.sensor_x_val = s_pos[0]
-                    st.session_state.sensor_y_val = s_pos[1]
-                    st.session_state.sensor_z_val = s_pos[2]
-                
-                st.sidebar.success("¡Configuración aplicada!")
-                st.rerun() # Recarga la app para mostrar los nuevos valores
-            else:
-                st.sidebar.error("El archivo JSON no tiene el formato correcto.")
-                
+            st.sidebar.success("✅ ¡Sistema reseteado y cargado!")
+            st.rerun() 
+            
     except Exception as e:
         st.sidebar.error(f"Error al procesar el archivo: {e}")
 
@@ -961,7 +965,7 @@ with col_concl1:
     st.write(f"**Propuesta (Modo 1):** {f_res_rpm_prop[0]:.0f} RPM")
     st.write(f"**Propuesta (Modo 6):** {f_res_rpm_prop[5]:.0f} RPM")
     
-    dist_min_base = abs(f_res_rpm_prop[5] - rpm_obj)
+    dist_min_base = abs(f_res_rpm[5] - rpm_obj)
     dist_min_prop = np.min(np.abs(f_res_rpm_prop[5] - rpm_obj))
 
     if dist_min_base < 150 or dist_min_prop < 150:

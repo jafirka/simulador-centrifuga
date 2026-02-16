@@ -243,8 +243,8 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
         elif eje_vertical == 'y':
             arm = dist - cg_global[1]
             # Fuerza en X y Z | Momento en X (debido a Fz) y Momento en Z (debido a Fx)
-            #F = np.array([F0, 0, F0*1j, (F0*1j)*arm, 0, -F0*arm])
-            F = np.array([F0*1j, 0, F0, (F0)*arm, 0, -(F0*1j)*arm])
+            F = np.array([F0, 0, F0*1j, (F0*1j)*arm, 0, -F0*arm])
+            #F = np.array([F0*1j, 0, F0, (F0)*arm, 0, -(F0*1j)*arm])
         else: # Eje Z
             arm = dist - cg_global[2]
             # Fuerza en X y Y | Momento en X (debido a Fy) y Momento en Y (debido a Fx)

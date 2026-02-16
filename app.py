@@ -243,7 +243,8 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
         elif eje_vertical == 'y':
             arm = dist - cg_global[1]
             # Fuerza en X y Z | Momento en X (debido a Fz) y Momento en Z (debido a Fx)
-            F = np.array([F0, 0, F0*1j, (F0*1j)*arm, 0, -F0*arm])
+            #F = np.array([F0, 0, F0*1j, (F0*1j)*arm, 0, -F0*arm])
+            F = np.array([F0*1j, 0, F0, (F0)*arm, 0, -(F0*1j)*arm])
         else: # Eje Z
             arm = dist - cg_global[2]
             # Fuerza en X y Y | Momento en X (debido a Fy) y Momento en Y (debido a Fx)
@@ -286,21 +287,13 @@ st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria
 st.markdown("Modifica los valores en la barra lateral para ver el impacto en las vibraciones.")
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
-st.sidebar.header("Parámetros de Diseño")
+st.sidebar.header("Parámetros de cálculos")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 distancia_eje = st.sidebar.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
-# --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
-st.sidebar.text("Posición del Sensor de velocidad/aceleracion(m)")
-col_s1, col_s2, col_s3 = st.sidebar.columns(3)
-with col_s1:
-    sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
-with col_s2:
-    sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
-with col_s3:
-    sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
+
 
 
 # --- Definir ejes de referencia ---
@@ -314,6 +307,15 @@ elif eje_vertical == 'y':
 else: # 'z'
     plano_rotor = ['x', 'y']
 
+# --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
+st.sidebar.text("Posición del Sensor de velocidad/aceleracion(m)")
+col_s1, col_s2, col_s3 = st.sidebar.columns(3)
+with col_s1:
+    sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
+with col_s2:
+    sensor_y = st.number_input("Y", value=0.8, step=0.1, format="%.2f")
+with col_s3:
+    sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
 # --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
 st.header("🧱 Configuración del Sistema")

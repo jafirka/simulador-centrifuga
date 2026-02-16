@@ -310,7 +310,7 @@ eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z
 if eje_vertical == 'x':
     plano_rotor = ['y', 'z']
 elif eje_vertical == 'y':
-    plano_rotor = ['x', 'z']
+    plano_rotor = ['z', 'x']
 else: # 'z'
     plano_rotor = ['x', 'y']
 

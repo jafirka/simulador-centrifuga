@@ -412,13 +412,14 @@ with subtabs[3]:
     
     with col_g1:
         # Usamos el valor guardado en session_state como 'value'
+
         lado_a = st.number_input("Lado A [m]", 
-                                 value=st.session_state.placa_data["lado_a"], 
-                                 step=0.1, format="%.2f", key="input_lado_a")
+                                value=float(st.session_state.placa_data.get("lado_a", 2.4)), 
+                                step=0.1, format="%.2f", key="input_lado_a")
         
         lado_b = st.number_input("Lado B [m]", 
-                                 value=st.session_state.placa_data["lado_b"], 
-                                 step=0.1, format="%.2f", key="input_lado_b")
+                                value=float(st.session_state.placa_data.get("lado_b", 2.4)), 
+                                step=0.1, format="%.2f", key="input_lado_b")
     
     with col_g2:
         espesor = st.number_input("Espesor [m]", 

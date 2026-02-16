@@ -319,8 +319,20 @@ with tab_config:
     
     with col_sys1:
         # --- Definir ejes de referencia ---
-        eje_vertical = st.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
-        distancia_eje = st.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
+
+        eje_vertical = st.selectbox(
+        "Eje de Rotación (Vertical)", 
+        ('x', 'y', 'z'), 
+        index=('x', 'y', 'z').index(st.session_state.get('eje_vertical_val', 'z'))
+        )
+
+        # 2. Distancia de la masa de desbalanceo
+        distancia_eje = st.number_input(
+            "Coordenada vertical de la masa de desbalanceo (m)", 
+            value=float(st.session_state.get('distancia_eje_val', 0.8)),
+            key="sys_dist_eje"
+        )
+
         # Determinar el plano del rotor en función del eje vertical
         if eje_vertical == 'x':
             plano_rotor = ['y', 'z']
@@ -541,6 +553,11 @@ st.sidebar.header("💾 Gestión de Archivos")
 # --- FUNCIONALIDAD DE EXPORTAR (Download) ---
 # Preparamos el diccionario con todo lo que hay en memoria actualmente
 datos_a_exportar = {
+    "configuracion_sistema": {
+        "eje_vertical": eje_vertical,
+        "distancia_eje": distancia_eje,
+        "sensor_pos": [sensor_x, sensor_y, sensor_z]
+    },
     "componentes_data": st.session_state.componentes_data,
     "dampers_prop_data": st.session_state.dampers_prop_data,
     "dampers_pos_data": st.session_state.dampers_pos_data,
@@ -574,6 +591,21 @@ if archivo_subido is not None:
                 st.session_state.dampers_prop_data = datos_cargados["dampers_prop_data"]
                 st.session_state.dampers_pos_data = datos_cargados["dampers_pos_data"]
                 st.session_state.placa_data = datos_cargados["placa_data"]
+
+                # 2. Actualizamos Configuración de Sistema (si existe en el JSON)
+                if "configuracion_sistema" in datos_cargados:
+                    cfg = datos_cargados["configuracion_sistema"]
+                    
+                    # Guardamos en session_state para que los widgets los tomen como default
+                    # Nota: Para que esto funcione, tus widgets (slider, selectbox) deben tener
+                    # su parámetro 'value' o 'index' apuntando a estos st.session_state.
+                    st.session_state.eje_vertical_val = cfg.get("eje_vertical", "z")
+                    st.session_state.distancia_eje_val = cfg.get("distancia_eje", 0.8)
+                    # Sensor
+                    s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
+                    st.session_state.sensor_x_val = s_pos[0]
+                    st.session_state.sensor_y_val = s_pos[1]
+                    st.session_state.sensor_z_val = s_pos[2]
                 
                 st.sidebar.success("¡Configuración aplicada!")
                 st.rerun() # Recarga la app para mostrar los nuevos valores

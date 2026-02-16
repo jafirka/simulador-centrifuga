@@ -347,8 +347,12 @@ with tab_comp:
 
     for i, nombre in enumerate(nombres_llaves):
         with subtabs[i]:
+            # ✅ NOTA ACLARATORIA: Solo para la primera subpestaña (Bancada)
+            if i == 0:
+                st.info("💡 **Nota:** La bancada debe inlcuir la masa y la inercia de la caja de rodamientos y elementos auxilaires, EXCLUYENDO la placa de inercia")
             # ✅ RECUPERAR DATOS: Priorizamos la memoria de la sesión
             datos_memoria = st.session_state.componentes_data[nombre]
+        
             
             c_m, c_p = st.columns([1, 2])
             with c_m:

@@ -291,7 +291,6 @@ st.sidebar.header("Parámetros de cálculos")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
-distancia_eje = st.sidebar.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
 
@@ -323,7 +322,50 @@ st.header("🧱 Configuración del Sistema")
 # Contenedor para los datos procesados en los tabs
 comp_editados = {} 
 
-tab_comp, tab_dampers = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
+tab_comp, tab_dampers, tab_config = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers", "⚙️ Configuración del Sistema"])
+
+with tab_config:
+    st.subheader("Configuración de Ejes y Convención")
+    col_sys1, col_sys2 = st.columns(2)
+    
+    with col_sys1:
+        # --- Definir ejes de referencia ---
+        eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
+        # Determinar el plano del rotor en función del eje vertical
+        if eje_vertical == 'x':
+            plano_rotor = ['y', 'z']
+        elif eje_vertical == 'y':
+            plano_rotor = ['z', 'x']
+        else: # 'z'
+            plano_rotor = ['x', 'y']
+        st.info(f"**Eje de Rotación seleccionado:** Eje {eje_vertical.upper()}")
+        st.write(f"Para mantener un sistema de coordenadas de **mano derecha**, el plano del rotor se define como:")
+        st.latex(rf"\vec{{V}} = {eje_vertical.upper()} \implies \text{{Plano: }} {plano_rotor[0].upper()} - {plano_rotor[1].upper()}")
+        
+        # Explicación de la fuerza centrífuga
+        st.write("**Dinámica de Excitación:**")
+        st.markdown(f"""
+        * **Fase 0°:** Fuerza en eje {plano_rotor[0].upper()}
+        * **Fase 90°:** Fuerza en eje {plano_rotor[1].upper()}
+        * **Momento:** Generado por la distancia vertical al CG.
+        """)
+        distancia_eje = st.sidebar.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
+        
+
+    with col_sys2:
+        # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar
+        st.metric("Masa Desbalanceo", f"{m_unbalance} kg")
+        st.metric("RPM Operación", f"{rpm_obj} RPM")
+        st.metric("Gravedad", "9.81 m/s²")
+
+    st.divider()
+    
+    # Mostrar el Diccionario de Configuración (opcional, muy útil para debug)
+    with st.expander("🔍 Ver JSON de configuración actual"):
+        st.json(config_base)
+
+
+
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:

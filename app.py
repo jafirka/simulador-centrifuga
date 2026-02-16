@@ -531,20 +531,23 @@ config_base = {
 
 def json_compacto(obj):
     """
-    Convierte un objeto a JSON y colapsa las listas de números 
-    o listas simples en una sola línea.
+    Convierte a JSON colapsando listas de números en una sola línea
+    sin duplicar comas.
     """
-    # Generar el JSON con indentación estándar primero
+    # 1. Generar JSON estándar
     content = json.dumps(obj, indent=4, sort_keys=True)
     
-    # Expresión regular para encontrar listas de números o listas de listas de números
-    # Esta regex busca patrones como [ 1.0, 0.0, 0.0 ] y los une
-    content = re.sub(r'\[\s+([\d\.\-\,e\+\s]+)\s+\]', 
-                    lambda m: "[" + ", ".join(m.group(1).split()) + "]", 
-                    content)
+    # 2. Regex corregida: 
+    # Busca una lista que empiece por '[', contenga números, comas, espacios y cierre con ']'
+    # Luego elimina los saltos de línea y espacios extra dentro de esa lista.
+    def limpiar_lista(match):
+        return match.group(0).replace("\n", "").replace(" ", "").replace(",", ", ")
+
+    # Esta regex identifica patrones de listas de números/floats
+    content = re.sub(r'\[(?:\s*[-+]?\d*\.?\d+(?:e[-+]?\d+)?\s*,?)+ \s*\]', limpiar_lista, content)
     
-    # Un segundo pase para limpiar comas mal puestas por el split si fuera necesario
-    content = content.replace("[,", "[").replace(",]", "]")
+    # Limpieza final de seguridad por si quedaron espacios raros
+    content = content.replace(", ]", "]").replace("[, ", "[")
     
     return content
 

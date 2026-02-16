@@ -319,7 +319,7 @@ with tab_config:
     
     with col_sys1:
         # --- Definir ejes de referencia ---
-        eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
+        eje_vertical = st.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
         # Determinar el plano del rotor en función del eje vertical
         if eje_vertical == 'x':
             plano_rotor = ['y', 'z']

@@ -528,7 +528,7 @@ datos_a_exportar = {
     "placa_data": st.session_state.placa_data
 }
 # Convertir a string JSON
-json_string = json_compacto(datos_a_exportar, indent=4)
+json_string = json_compacto(datos_a_exportar)
 st.sidebar.download_button(
     label="📥 Descargar Configuración (.json)",
     data=json_string,

@@ -6,6 +6,8 @@ import math
 import copy
 import json
 import pandas as pd
+import re
+
 
 # --- INICIALIZACIÓN DE SESSION STATE ---
 # Solo se ejecuta la primera vez que se abre la app
@@ -288,10 +290,10 @@ st.sidebar.header("Parámetros de Diseño")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
-distancia_eje = st.sidebar.number_input("Distancia masa desbalanceo en el eje (m)", value=0.8)
+distancia_eje = st.sidebar.number_input("Coordenada vertical de la masa de desbalanceo (m)", value=0.8)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
-st.sidebar.text("Posición del Sensor (m)")
+st.sidebar.text("Posición del Sensor de velocidad/aceleracion(m)")
 col_s1, col_s2, col_s3 = st.sidebar.columns(3)
 with col_s1:
     sensor_x = st.number_input("X", value=0.0, step=0.1, format="%.2f")
@@ -301,9 +303,7 @@ with col_s3:
     sensor_z = st.number_input("Z", value=0.0, step=0.1, format="%.2f")
 
 
-
 # --- Definir ejes de referencia ---
-st.sidebar.subheader("Configuración del Modelo")
 eje_vertical = st.sidebar.selectbox("Eje de Rotación (Vertical)", ('x', 'y', 'z'), index=2)
 
 # Determinar el plano del rotor en función del eje vertical
@@ -496,10 +496,29 @@ config_base = {
 
 }
 
+# 3️⃣ GUARDADO ARCHIVO
+
+def json_compacto(obj):
+    """
+    Convierte un objeto a JSON y colapsa las listas de números 
+    o listas simples en una sola línea.
+    """
+    # Generar el JSON con indentación estándar primero
+    content = json.dumps(obj, indent=4, sort_keys=True)
+    
+    # Expresión regular para encontrar listas de números o listas de listas de números
+    # Esta regex busca patrones como [ 1.0, 0.0, 0.0 ] y los une
+    content = re.sub(r'\[\s+([\d\.\-\,e\+\s]+)\s+\]', 
+                    lambda m: "[" + ", ".join(m.group(1).split()) + "]", 
+                    content)
+    
+    # Un segundo pase para limpiar comas mal puestas por el split si fuera necesario
+    content = content.replace("[,", "[").replace(",]", "]")
+    
+    return content
 
 st.sidebar.divider()
 st.sidebar.header("💾 Gestión de Archivos")
-
 # --- FUNCIONALIDAD DE EXPORTAR (Download) ---
 # Preparamos el diccionario con todo lo que hay en memoria actualmente
 datos_a_exportar = {
@@ -508,10 +527,8 @@ datos_a_exportar = {
     "dampers_pos_data": st.session_state.dampers_pos_data,
     "placa_data": st.session_state.placa_data
 }
-
 # Convertir a string JSON
-json_string = json.dumps(datos_a_exportar, indent=4)
-
+json_string = json.compacto(datos_a_exportar, indent=4)
 st.sidebar.download_button(
     label="📥 Descargar Configuración (.json)",
     data=json_string,
@@ -519,12 +536,10 @@ st.sidebar.download_button(
     mime="application/json",
     help="Guarda todos los datos actuales en un archivo para usarlos después."
 )
-
 st.sidebar.write("---")
 
 # --- FUNCIONALIDAD DE IMPORTAR (Upload) ---
 archivo_subido = st.sidebar.file_uploader("📂 Cargar archivo JSON", type=["json"])
-
 if archivo_subido is not None:
     try:
         datos_cargados = json.load(archivo_subido)
@@ -606,14 +621,7 @@ rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop,
 # 📄 INTRODUCCIÓN Y MEMORIA DE CÁLCULO
 # ==========================================
 st.markdown(f"""
-### 📋 Informe de Análisis Dinámico
-Este reporte simula el comportamiento vibratorio de una centrífuga industrial bajo condiciones de desbalanceo.
-A continuación se detallan los parámetros de entrada utilizados para este análisis:
-
-* **Masa de Desbalanceo:** {m_unbalance:.2f} kg
-* **RPM de Operación:** {rpm_obj} RPM
-* **Material de la Placa:** Acero (ρ = 7850 kg/m³)
-* **Configuración de Dampers:** 4 apoyos elásticos (Tipo: {lista_dampers_config[0]['tipo']} y {lista_dampers_config[2]['tipo']})
+### 📋 Resultados
 ---
 """)
 
@@ -864,6 +872,19 @@ st.pyplot(fig)
 # ==========================================
 # 📈 ANÁLISIS DE RESONANCIA Y CONCLUSIONES
 # ==========================================
+st.markdown(f"""
+### 📋 Informe de Análisis Dinámico
+Este reporte simula el comportamiento vibratorio de una centrífuga industrial bajo condiciones de desbalanceo.
+A continuación se detallan los parámetros de entrada utilizados para este análisis:
+
+* **Masa de Desbalanceo:** {m_unbalance:.2f} kg
+* **RPM de Operación:** {rpm_obj} RPM
+* **Material de la Placa:** Acero (ρ = 7850 kg/m³)
+* **Configuración de Dampers:** 4 apoyos elásticos (Tipo: {lista_dampers_config[0]['tipo']} y {lista_dampers_config[2]['tipo']})
+---
+""")
+
+
 st.divider()
 # Inserta esto antes de una sección nueva que quieras que empiece en hoja limpia
 st.markdown('<div style="break-after:page"></div>', unsafe_allow_html=True)
@@ -940,7 +961,7 @@ with col_concl2:
 st.write("---")
 st.subheader("📝 Notas del Analista")
 observaciones = st.text_area("Escribe aquí tus conclusiones adicionales para el PDF:", 
-                             "Se observa que el aumento del espesor de la placa desplaza la frecuencia natural hacia arriba, reduciendo la amplitud en el punto de operación.")
+                             "Por ejemplo: Se observa que el aumento del espesor de la placa desplaza la frecuencia natural hacia arriba, reduciendo la amplitud en el punto de operación.")
 
 st.info("💡 **Consejo para el reporte:** Las anotaciones de arriba aparecerán en tu PDF final.")
 

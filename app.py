@@ -249,7 +249,46 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
 # ==========================================
-import copy
+
+# --- INICIALIZADOR DE DATOS (Fuente de Verdad Única) ---
+if 'componentes_data' not in st.session_state:
+    st.session_state.componentes_data = {
+        "bancada": {"m": 3542.0, "pos": [0.194, 0.0, 0.859], "I": [[3235.0, 0, 0], [0, 3690.0, 0], [0, 0, 2779.0]]},
+        "motor": {"m": 940.0, "pos": [1.6, 0.0, 1.1], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]},
+        "cesto": {"m": 1980.0, "pos": [0.5, 0.0, 0.0], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]}
+    }
+
+if 'placa_data' not in st.session_state:
+    st.session_state.placa_data = {
+        "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, 
+        "radio_agujero": 0.5, "dist_A": 0.0, "dist_B": 0.0
+    }
+
+if 'configuracion_sistema' not in st.session_state:
+    st.session_state.configuracion_sistema = {
+        "eje_vertical": "z",
+        "distancia_eje": 0.8,
+        "m_unbalance": 1.6,
+        "rpm_nominal": 1100,
+        "sensor_pos": [0.0, 0.8, 0.0]
+    }
+
+if 'dampers_prop_data' not in st.session_state:
+    st.session_state.dampers_prop_data = [
+        {"Tipo": "Ref_1", "kx": 1.32e6, "ky": 1.32e6, "kz": 1.6e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4},
+        {"Tipo": "Ref_2", "kx": 1.0e6,  "ky": 1.0e6,  "kz": 1.3e6, "cx": 2.5e4, "cy": 2.5e4, "cz": 5e4}
+    ]
+
+if 'dampers_pos_data' not in st.session_state:
+    st.session_state.dampers_pos_data = [
+        {"Nombre": "D1 (Motor)", "X": 1.12, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D2 (Motor)", "X": 1.12, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_1"},
+        {"Nombre": "D3 (Front)", "X": -0.93, "Y": 0.84, "Z": 0.0, "Tipo": "Ref_2"},
+        {"Nombre": "D4 (Front)", "X": -0.93, "Y": -0.84, "Z": 0.0, "Tipo": "Ref_2"},
+    ]
+
+
+
 # --- 3. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
 st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
@@ -258,10 +297,35 @@ st.markdown("Modifica los valores en la barra lateral para ver el impacto en las
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
 st.sidebar.header("Parámetros de cálculos")
 
+# --- LOGICA DE CARGA (Reset Maestro) ---
+archivo_subido = st.sidebar.file_uploader("📂 Importar archivo JSON", type=["json"])
+
+if archivo_subido is not None:
+    try:
+        datos_nuevos = json.load(archivo_subido)
+        
+        if st.sidebar.button("🚀 Aplicar y Resetear Interfaz"):
+            # 1. Almacenamos los datos nuevos temporalmente
+            temp_data = copy.deepcopy(datos_nuevos)
+            
+            # 2. LIMPIEZA: Borramos TODO el session_state
+            # Esto elimina la 'basura' de los widgets viejos
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            
+            # 3. RE-INYECCIÓN: Volcamos los datos del JSON
+            for key, value in temp_data.items():
+                st.session_state[key] = value
+                
+            st.sidebar.success("✅ Datos cargados. Reiniciando...")
+            st.rerun() # Obliga a los widgets a nacer con los nuevos valores
+            
+    except Exception as e:
+        st.sidebar.error(f"Error en formato: {e}")
+
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
-
 
 
 
@@ -280,17 +344,17 @@ with tab_config:
     with col_sys1:
         # --- Definir ejes de referencia ---
 
-        eje_vertical = st.selectbox(
-        "Eje de Rotación (Vertical)", 
-        ('x', 'y', 'z'), 
-        index=('x', 'y', 'z').index(st.session_state.get('eje_vertical_val', 'z'))
-        )
 
-        # 2. Distancia de la masa de desbalanceo
+        eje_vertical = st.selectbox(
+            "Eje...", ('x','y','z'), 
+            index=('x','y','z').index(st.session_state.configuracion_sistema["eje_vertical"]))
+
+        # 1. Leemos del "log" (session_state) para establecer el valor inicial
         distancia_eje = st.number_input(
             "Coordenada vertical de la masa de desbalanceo (m)", 
-            value=float(st.session_state.get('distancia_eje_val', 0.8)),
-            key="sys_dist_eje"
+            value=float(st.session_state.configuracion_sistema.get("distancia_eje", 0.8)),
+            step=0.01,
+            format="%.2f"
         )
 
         # Determinar el plano del rotor en función del eje vertical
@@ -304,12 +368,14 @@ with tab_config:
         # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
         st.text("Posición del Sensor de velocidad/aceleracion(m)")
         col_s1, col_s2, col_s3 = st.columns(3)
+
+        sensor_actual = st.session_state.configuracion_sistema.get("sensor_pos", [0.0, 0.0, 0.0])
         with col_s1:
-            sensor_x = st.number_input("X", value=float(st.session_state.get("sensor_x_val", 0.0)), key="s_x")
+            sensor_x = st.number_input("X", value=float(sensor_actual[0]), step=0.1)
         with col_s2:
-            sensor_y = st.number_input("Y", value=float(st.session_state.get("sensor_y_val", 0.8)), key="s_y")
+            sensor_y = st.number_input("Y", value=float(sensor_actual[1]), step=0.1)
         with col_s3:
-            sensor_z = st.number_input("Z", value=float(st.session_state.get("sensor_z_val", 0.0)), key="s_z")
+            sensor_z = st.number_input("Z", value=float(sensor_actual[2]), step=0.1)
 
     with col_sys2:
         # Un resumen rápido de los valores globales para no tener que buscarlos en el sidebar
@@ -318,9 +384,9 @@ with tab_config:
     st.divider()
 
 # Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
-st.session_state["eje_vertical_val"] = eje_vertical
-st.session_state["distancia_eje_val"] = distancia_eje
-st.session_state["sensor_pos_val"] = [sensor_x, sensor_y, sensor_z] 
+st.session_state.configuracion_sistema["eje_vertical"] = eje_vertical
+st.session_state.configuracion_sistema["distancia_eje"] = distancia_eje
+st.session_state.configuracion_sistema["sensor_pos"] = [sensor_x, sensor_y, sensor_z] 
 
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
@@ -335,89 +401,76 @@ with tab_comp:
             # ✅ NOTA ACLARATORIA: Solo para la primera subpestaña (Bancada)
             if i == 0:
                 st.info("💡 **Nota:** La bancada debe inlcuir la masa y la inercia de la caja de rodamientos y elementos auxilaires, EXCLUYENDO la placa de inercia")
-            # ✅ RECUPERAR DATOS: Priorizamos la memoria de la sesión
+            # 1. LEER DEL LOG (Fuente de Verdad)
             datos_memoria = st.session_state.componentes_data[nombre]
-        
+            pos_actual = datos_memoria.get("pos", [0.0, 0.0, 0.0])
             
             c_m, c_p = st.columns([1, 2])
             with c_m:
-                m_val = st.number_input(
-                    f"Masa {nombre} (kg)", 
-                    value=float(st.session_state.componentes_data[nombre].get("m", 0.0)), 
-                    key=f"m_input_{nombre}" # Esta key se limpia al importar
-                )
+                # Eliminamos la 'key' interna para que mande el 'value' del Log
+                m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)))
+            
             with c_p:
                 cx, cy, cz = st.columns(3)
-                # Leemos las posiciones del array 'pos' del JSON
-                pos_actual = st.session_state.componentes_data[nombre].get("pos", [0.0, 0.0, 0.0])
-                px = cx.number_input(f"X [m]", value=float(pos_actual[0]), key=f"px_in_{nombre}")
-                py = cy.number_input(f"Y [m]", value=float(pos_actual[1]), key=f"py_in_{nombre}")
-                pz = cz.number_input(f"Z [m]", value=float(pos_actual[2]), key=f"pz_in_{nombre}")
+                px = cx.number_input(f"X [m]", value=float(pos_actual[0]), format="%.3f")
+                py = cy.number_input(f"Y [m]", value=float(pos_actual[1]), format="%.3f")
+                pz = cz.number_input(f"Z [m]", value=float(pos_actual[2]), format="%.3f")
 
-            st.write(f"**Matriz de Inercia (3x3) para {nombre} [kg·m²]**")
-            
-            # ✅ EDITOR DE MATRIZ: Carga lo que hay en memoria (I)
-            # Convertimos a array de numpy por seguridad
-            iner_inicial = np.array(datos_memoria["I"])
-            
+            st.write(f"**Matriz de Inercia (3x3) [kg·m²]**")
+            # El data_editor es excelente para matrices
             df_iner_3x3 = st.data_editor(
-                iner_inicial,
-                key=f"matrix_3x3_{nombre}",
-                use_container_width=True,
-                column_config={"0": "X", "1": "Y", "2": "Z"}
+                np.array(datos_memoria["I"]),
+                key=f"editor_matriz_{nombre}", # El editor sí necesita key para ser interactivo
+                use_container_width=True
             )
             
-            # ✅ ACTUALIZAR MEMORIA: Guardamos los cambios inmediatamente
+            # 2. ACTUALIZAR LOG (Sincronización inmediata)
             st.session_state.componentes_data[nombre] = {
                 "m": m_val, 
                 "pos": [px, py, pz], 
                 "I": df_iner_3x3.tolist() if isinstance(df_iner_3x3, np.ndarray) else df_iner_3x3
             }
 
-            # Esto es lo que usará config_base al final del script
-            comp_editados[nombre] = st.session_state.componentes_data[nombre]
 
 
 # 2. ✅ Datos de la Placa de Inercia
 with subtabs[3]:
     st.write("### Parámetros Geométricos de la Placa")
     
-    # Creamos las columnas primero para organizar la interfaz
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
-        # Usamos el valor guardado en session_state como 'value'
-
+        # LEER DEL LOG: Eliminamos las 'key' de los inputs para que no bloqueen la carga del JSON
         lado_a = st.number_input("Lado A [m]", 
                                 value=float(st.session_state.placa_data.get("lado_a", 2.4)), 
-                                step=0.1, format="%.2f", key="input_lado_a")
+                                step=0.1, format="%.2f")
         
         lado_b = st.number_input("Lado B [m]", 
                                 value=float(st.session_state.placa_data.get("lado_b", 2.4)), 
-                                step=0.1, format="%.2f", key="input_lado_b")
+                                step=0.1, format="%.2f")
     
     with col_g2:
         espesor = st.number_input("Espesor [m]", 
                                     value=float(st.session_state.placa_data.get("espesor", 0.1)), 
-                                    step=0.01, format="%.3f", key="input_espesor")
+                                    step=0.01, format="%.3f")
         radio_agujero = st.number_input("Radio Agujero [m]", 
                                         value=float(st.session_state.placa_data.get("radio_agujero", 0.5)), 
-                                        step=0.05, format="%.2f", key="input_radio")
+                                        step=0.05, format="%.2f")
 
     st.write("### Posición del Centro de la Placa")
     col_p1, col_p2 = st.columns(2)
     
     with col_p1:
         dist_A = st.number_input(f"Desfase en {plano_rotor[0].upper()} (dist_A)", 
-                                value=float(st.session_state.placa_data.get("dist_A", 0.0)), # Corregido
-                                step=0.1, key="input_dist_A")
+                                 value=float(st.session_state.placa_data.get("dist_A", 0.0)), 
+                                 step=0.1)
     with col_p2:
         dist_B = st.number_input(f"Desfase en {plano_rotor[1].upper()} (dist_B)", 
-                                value=float(st.session_state.placa_data.get("dist_B", 0.0)), # Corregido
-                                step=0.1, key="input_dist_B")
+                                 value=float(st.session_state.placa_data.get("dist_B", 0.0)), 
+                                 step=0.1)
 
-    # ✅ ACTUALIZACIÓN CRÍTICA: Guardamos los valores actuales en el session_state
-    # Esto permite que al presionar "Descargar JSON", los datos estén al día.
+    # ✅ ACTUALIZACIÓN DEL LOG (Sincronización inmediata)
+    # Al estar fuera de los 'with col', se ejecuta siempre que cambie cualquier valor
     st.session_state.placa_data.update({
         "lado_a": lado_a,
         "lado_b": lado_b,
@@ -429,77 +482,98 @@ with subtabs[3]:
 
 
 # 2️⃣ GESTIÓN DE DAMPERS
-dampers_finales = []
 with tab_dampers:
     st.write("### 1. Definición de Propiedades por Tipo")
     
-    # 1. Editor de Propiedades (Ya lo tenías bien, pero aseguramos el guardado)
+    # Editor de Propiedades: Sincronización directa con el Log
     df_prop_editada = st.data_editor(
         st.session_state.dampers_prop_data,
         key="editor_tipos_nombres",
         use_container_width=True,
         hide_index=True,
+        num_rows="dynamic", # Permitimos que el usuario defina nuevos tipos
         column_config={
             "Tipo": st.column_config.TextColumn("Nombre del Tipo/Modelo", required=True),
-            "kx": st.column_config.NumberColumn("Kx [N/m]"),
-            "ky": st.column_config.NumberColumn("Ky [N/m]"),
-            "kz": st.column_config.NumberColumn("Kz [N/m]"),
+            "kx": st.column_config.NumberColumn("Kx [N/m]", format="%.1e"),
+            "ky": st.column_config.NumberColumn("Ky [N/m]", format="%.1e"),
+            "kz": st.column_config.NumberColumn("Kz [N/m]", format="%.1e"),
         }
     )
-    # IMPORTANTE: Guardar el cambio en el estado para que el JSON sepa qué hay
+    # Sincronizamos con el Log Maestro
     st.session_state.dampers_prop_data = df_prop_editada
 
+    # Extraemos la lista de tipos para el desplegable de la siguiente tabla
+    # Usamos list(set(...)) para evitar duplicados si el usuario se equivoca
     df_prop = pd.DataFrame(df_prop_editada)
-    lista_tipos_disponibles = df_prop["Tipo"].tolist()
+    lista_tipos_disponibles = df_prop["Tipo"].dropna().unique().tolist()
 
     st.write("### 2. Ubicación de los Dampers")
     
-    # 2. Editor de Posiciones (CORREGIDO para usar Session State)
+    # Editor de Posiciones
     res_pos_editor = st.data_editor(
-        st.session_state.dampers_pos_data, # <--- USAR ESTADO, NO LA LISTA FIJA
+        st.session_state.dampers_pos_data,
         num_rows="dynamic", 
         key="pos_dampers_editor_v2", 
         use_container_width=True,
+        hide_index=True,
         column_config={
+            "Nombre": st.column_config.TextColumn("Identificador (ej. D1)", required=True),
             "Tipo": st.column_config.SelectboxColumn(
                 "Tipo de Damper", 
                 options=lista_tipos_disponibles,
                 required=True
-            )
+            ),
+            "X": st.column_config.NumberColumn("X [m]", format="%.3f"),
+            "Y": st.column_config.NumberColumn("Y [m]", format="%.3f"),
+            "Z": st.column_config.NumberColumn("Z [m]", format="%.3f"),
         }
     )
-    # IMPORTANTE: Guardar el cambio en el estado
+    # Sincronizamos con el Log Maestro
     st.session_state.dampers_pos_data = res_pos_editor
 
-    # ✅ PROCESAMIENTO FINAL
+    # ✅ PROCESAMIENTO FINAL (Para el motor de cálculo)
+    # Creamos 'dampers_finales' uniendo ambas tablas
+    dampers_finales = []
     df_pos = pd.DataFrame(res_pos_editor)
-    df_prop_indexed = df_prop.set_index("Tipo")
-
-    for _, row in df_pos.iterrows():
-        tipo_sel = row.get("Tipo") # Usamos .get por seguridad si la fila está vacía
-        if tipo_sel in df_prop_indexed.index:
-            p = df_prop_indexed.loc[tipo_sel]
-            dampers_finales.append({
-                "nombre": row["Nombre"],
-                "pos": [row["X"], row["Y"], row["Z"]],
-                "tipo": tipo_sel,
-                "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
-                "cx": p["cx"], "cy": p["cy"], "cz": p["cz"]
-            })
+    
+    if not df_pos.empty and not df_prop.empty:
+        df_prop_indexed = df_prop.set_index("Tipo")
+        
+        for _, row in df_pos.iterrows():
+            tipo_sel = row.get("Tipo")
+            # Seguridad: Solo procesamos si el tipo existe en la tabla de propiedades
+            if tipo_sel and tipo_sel in df_prop_indexed.index:
+                p = df_prop_indexed.loc[tipo_sel]
+                dampers_finales.append({
+                    "nombre": row.get("Nombre", "Sin nombre"),
+                    "pos": [row.get("X", 0.0), row.get("Y", 0.0), row.get("Z", 0.0)],
+                    "tipo": tipo_sel,
+                    "kx": p["kx"], "ky": p["ky"], "kz": p["kz"],
+                    "cx": p.get("cx", 0.0), "cy": p.get("cy", 0.0), "cz": p.get("cz", 0.0)
+                })
 
 
             
-# 3️⃣ ENSAMBLAJE FINAL
+# 3️⃣ ENSAMBLAJE FINAL (Cálculo Base)
+# Usamos las llaves del session_state para garantizar que, 
+# aunque el usuario no abra una pestaña, el simulador use el último dato guardado.
+
 config_base = {
-    "eje_vertical": eje_vertical, 
-    "plano_rotor": plano_rotor,
-    "excitacion": {"distancia_eje": distancia_eje, "m_unbalance": m_unbalance, "e_unbalance": 0.8},
-    "placa": {"lado_a": lado_a, "lado_b": lado_b, "espesor": espesor, "radio_agujero": radio_agujero, "dist_A": dist_A, "dist_B": dist_B},
-    "componentes": comp_editados,
-    "dampers": dampers_finales,
-    "sensor": {"pos_sensor": [sensor_x, sensor_y, sensor_z]},
-    "tipos_dampers": df_prop.to_dict('index')
-    }
+    "eje_vertical": st.session_state.configuracion_sistema["eje_vertical"], 
+    "plano_rotor": plano_rotor, # Esta se calcula dinámicamente arriba del ensamblaje
+    "excitacion": {
+        "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"], 
+        "m_unbalance": m_unbalance, # Viene del slider de la sidebar
+        "e_unbalance": 0.8 # Valor constante de diseño
+    },
+    "placa": st.session_state.placa_data,
+    "componentes": st.session_state.componentes_data,
+    "dampers": dampers_finales, # Lista ya procesada en la pestaña anterior
+    "sensor": {
+        "pos_sensor": st.session_state.configuracion_sistema["sensor_pos"]
+    },
+    "tipos_dampers": pd.DataFrame(st.session_state.dampers_prop_data).set_index("Tipo").to_dict('index')
+}
 
 # 3️⃣ GUARDADO ARCHIVO
 
@@ -530,16 +604,25 @@ st.sidebar.header("💾 Gestión de Archivos")
 # --- FUNCIONALIDAD DE EXPORTAR (Download) ---
 # Preparamos el diccionario con todo lo que hay en memoria actualmente
 datos_a_exportar = {
+    # Agrupamos todo lo referente a la física global del sistema
     "configuracion_sistema": {
-        "eje_vertical": st.session_state["eje_vertical_val"],
-        "distancia_eje": st.session_state["distancia_eje_val"],
-        "sensor_pos": st.session_state["sensor_pos_val"]
+        "eje_vertical": st.session_state.configuracion_sistema["eje_vertical"],
+        "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"],
+        "m_unbalance": m_unbalance, # El valor del slider lateral
+        "rpm_nominal": rpm_obj,     # El valor del input lateral
+        "sensor_pos": st.session_state.configuracion_sistema["sensor_pos"]
     },
+    # Los diccionarios de componentes (Bancada, Motor, Cesto)
     "componentes_data": st.session_state.componentes_data,
+    
+    # La geometría y desfase de la placa
+    "placa_data": st.session_state.placa_data,
+    
+    # Las dos tablas de los Dampers (Propiedades y Ubicaciones)
     "dampers_prop_data": st.session_state.dampers_prop_data,
-    "dampers_pos_data": st.session_state.dampers_pos_data,
-    "placa_data": st.session_state.placa_data
+    "dampers_pos_data": st.session_state.dampers_pos_data
 }
+
 # Convertir a string JSON
 json_string = json_compacto(datos_a_exportar)
 st.sidebar.download_button(
@@ -551,43 +634,6 @@ st.sidebar.download_button(
 )
 st.sidebar.write("---")
 
-
-
-# --- FUNCIONALIDAD DE IMPORTAR (Generalizada) ---
-
-archivo_subido = st.sidebar.file_uploader("📂 Cargar archivo JSON", type=["json"])
-
-if archivo_subido is not None:
-    try:
-        datos_cargados = json.load(archivo_subido)
-        
-        if st.sidebar.button("🚀 Aplicar Configuración Completa"):
-        # 1. Guardamos los datos del JSON en una variable temporal
-            nuevos_datos = copy.deepcopy(datos_cargados)
-            
-            # 2. Limpiamos TODO el session_state
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            
-            # 3. Inyectamos los nuevos datos directamente
-            for key, value in nuevos_datos.items():
-                st.session_state[key] = value
-            
-            # 4. Sincronización explícita de variables de sistema
-            if "configuracion_sistema" in nuevos_datos:
-                cfg = nuevos_datos["configuracion_sistema"]
-                st.session_state["eje_vertical_val"] = cfg.get("eje_vertical", "z")
-                st.session_state["distancia_eje_val"] = cfg.get("distancia_eje", 0.8)
-                s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
-                st.session_state["sensor_x_val"] = s_pos[0]
-                st.session_state["sensor_y_val"] = s_pos[1]
-                st.session_state["sensor_z_val"] = s_pos[2]
-
-            st.sidebar.success("✅ ¡Sistema reseteado y cargado!")
-            st.rerun() 
-            
-    except Exception as e:
-        st.sidebar.error(f"Error al procesar el archivo: {e}")
 
 
 

@@ -265,14 +265,14 @@ rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
 
 
-# --- SECCIÓN: GESTIÓN DE COMPONENTES DINÁMICOS ---
+# --- SECCIÓN: PESTAÑAS ---
 st.header("🧱 Configuración del Sistema")
 
 # Contenedor para los datos procesados en los tabs
 comp_editados = {} 
-
 tab_comp, tab_dampers, tab_config = st.tabs(["📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers", "⚙️ Configuración del Sistema"])
 
+# 1️⃣ CONFIGURACION DE SISTEMA
 with tab_config:
     st.subheader("Configuración de Ejes y Convención")
     col_sys1, col_sys2 = st.columns(2)
@@ -321,9 +321,6 @@ with tab_config:
 st.session_state["eje_vertical_val"] = eje_vertical
 st.session_state["distancia_eje_val"] = distancia_eje
 st.session_state["sensor_pos_val"] = [sensor_x, sensor_y, sensor_z] 
-
-
-
 
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
@@ -381,7 +378,7 @@ with tab_comp:
             comp_editados[nombre] = st.session_state.componentes_data[nombre]
 
 
-# 2. ✅ NUEVA SUBTAB: Datos de la Placa de Inercia
+# 2. ✅ Datos de la Placa de Inercia
 with subtabs[3]:
     st.write("### Parámetros Geométricos de la Placa")
     
@@ -502,8 +499,7 @@ config_base = {
     "dampers": dampers_finales,
     "sensor": {"pos_sensor": [sensor_x, sensor_y, sensor_z]},
     "tipos_dampers": df_prop.to_dict('index')
-
-}
+    }
 
 # 3️⃣ GUARDADO ARCHIVO
 
@@ -561,47 +557,37 @@ st.sidebar.write("---")
 
 archivo_subido = st.sidebar.file_uploader("📂 Cargar archivo JSON", type=["json"])
 
-def cargar_configuracion(archivo_subido):
-    if archivo_subido is not None:
-        try:
-            config_cargada = json.load(archivo_subido)
-
-            # 1. Actualizar valores simples del sistema
-            st.session_state.eje_vertical_val = config_cargada.get('eje_vertical', 'z')
-            st.session_state.rpm_obj_val = config_cargada.get('rpm_obj', 1100)
-
-            # 2. Actualizar excitación
-            excitacion_cargada = config_cargada.get('excitacion', {})
-            st.session_state.distancia_eje_val = excitacion_cargada.get('distancia_eje', 1.2)
-            st.session_state.m_unbalance_val = excitacion_cargada.get('m_unbalance', 1.6)
-
-            # 3. Actualizar datos de la placa
-            if 'placa' in config_cargada:
-                st.session_state.placa_data = config_cargada['placa']
-
-            # 4. Actualizar datos de componentes (Masa, Posición, Inercia)
-            if 'componentes' in config_cargada:
-                 st.session_state.componentes_data = config_cargada['componentes']
-
-            # 5. Actualizar Dampers (Propiedades y Posiciones)
-            if 'tipos_dampers' in config_cargada:
-                st.session_state.dampers_prop_data = config_cargada['tipos_dampers']
-            if 'dampers' in config_cargada:
-                st.session_state.dampers_pos_data = config_cargada['dampers']
-
-            # 6. Actualizar Sensor
-            sensor_cargado = config_cargada.get('sensor', {})
-            pos_sensor_cargada = sensor_cargado.get('pos_sensor', [0.0, 0.8, 0.0])
-            st.session_state.sensor_x_val = pos_sensor_cargada[0]
-            st.session_state.sensor_y_val = pos_sensor_cargada[1]
-            st.session_state.sensor_z_val = pos_sensor_cargada[2]
+if archivo_subido is not None:
+    try:
+        datos_cargados = json.load(archivo_subido)
+        
+        if st.sidebar.button("🚀 Aplicar Configuración Completa"):
+        # 1. Guardamos los datos del JSON en una variable temporal
+            nuevos_datos = copy.deepcopy(datos_cargados)
             
-            st.success("Configuración cargada con éxito. La aplicación se actualizará.")
-            st.rerun() # <-- 2. Añadí esta línea
+            # 2. Limpiamos TODO el session_state
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            
+            # 3. Inyectamos los nuevos datos directamente
+            for key, value in nuevos_datos.items():
+                st.session_state[key] = value
+            
+            # 4. Sincronización explícita de variables de sistema
+            if "configuracion_sistema" in nuevos_datos:
+                cfg = nuevos_datos["configuracion_sistema"]
+                st.session_state["eje_vertical_val"] = cfg.get("eje_vertical", "z")
+                st.session_state["distancia_eje_val"] = cfg.get("distancia_eje", 0.8)
+                s_pos = cfg.get("sensor_pos", [0.0, 0.8, 0.0])
+                st.session_state["sensor_x_val"] = s_pos[0]
+                st.session_state["sensor_y_val"] = s_pos[1]
+                st.session_state["sensor_z_val"] = s_pos[2]
 
-        except Exception as e:
-            st.error(f"No se pudo leer el archivo de configuración: {e}")
-
+            st.sidebar.success("✅ ¡Sistema reseteado y cargado!")
+            st.rerun() 
+            
+    except Exception as e:
+        st.sidebar.error(f"Error al procesar el archivo: {e}")
 
 
 

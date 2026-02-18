@@ -268,8 +268,6 @@ if 'configuracion_sistema' not in st.session_state:
     st.session_state.configuracion_sistema = {
         "eje_vertical": "z",
         "distancia_eje": 0.8,
-        "m_unbalance": 1.6,
-        "rpm_nominal": 1100,
         "sensor_pos": [0.0, 0.8, 0.0],
         "diametro_cesto": 1250  # Valor por defecto (mm)
     }
@@ -289,7 +287,6 @@ if 'dampers_pos_data' not in st.session_state:
     ]
 
 
-
 # --- 3. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
 st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
@@ -302,42 +299,36 @@ st.sidebar.header("Parámetros de cálculos")
 archivo_subido = st.sidebar.file_uploader("📂 Importar archivo de configuración (.json)", type=["json"])
 if archivo_subido is not None:
     try:
-        # En cuanto se sube un archivo, se procesa automáticamente.
         datos_preset = json.load(archivo_subido)
-        # --- MODIFICACIÓN CLAVE ---
-        # Este enfoque es más robusto. En lugar de borrar todo, actualizamos
-        # selectivamente los valores del archivo JSON. Así, si el JSON solo 
-        # contiene datos parciales, no se rompe la aplicación.
+        
+        # 1. Actualizar Componentes (Bancada, Motor, Cesto)
         if "componentes_data" in datos_preset:
-            for nombre_componente, data_componente in datos_preset["componentes_data"].items():
-                # Verificamos que el componente del JSON exista en el estado de la sesión
-                if nombre_componente in st.session_state.componentes_data:
-                    
-                    # Actualizamos 'm', 'pos', e 'I' si están en el archivo.
-                    # Si no están, los valores actuales en la sesión no se modifican.
-                    if "m" in data_componente:
-                        st.session_state.componentes_data[nombre_componente]["m"] = data_componente["m"]
-                    if "pos" in data_componente:
-                        st.session_state.componentes_data[nombre_componente]["pos"] = data_componente["pos"]
-                    if "I" in data_componente:
-                        st.session_state.componentes_data[nombre_componente]["I"] = data_componente["I"]
+            for nombre, data in datos_preset["componentes_data"].items():
+                if nombre in st.session_state.componentes_data:
+                    st.session_state.componentes_data[nombre].update(data)
         
-        # Aquí puedes añadir más lógica para actualizar otras partes del estado si es necesario
-        # Por ejemplo:
-        # if "otra_clave_importante" in datos_preset:
-        #     st.session_state.otra_clave_importante = datos_preset["otra_clave_importante"]
-        st.sidebar.success("✅ Datos del JSON aplicados correctamente.")
-        
-        # Forzamos un refresco de la app para mostrar los cambios inmediatamente.
-        st.rerun()
+        # 2. Actualizar Placa de Inercia
+        if "placa_data" in datos_preset:
+            st.session_state.placa_data.update(datos_preset["placa_data"])
+            
+        # 3. Actualizar Configuración del Sistema
+        if "configuracion_sistema" in datos_preset:
+            st.session_state.configuracion_sistema.update(datos_preset["configuracion_sistema"])
+
+        # 4. Actualizar Dampers (¡Muy importante!)
+        if "dampers_prop_data" in datos_preset:
+            st.session_state.dampers_prop_data = datos_preset["dampers_prop_data"]
+        if "dampers_pos_data" in datos_preset:
+            st.session_state.dampers_pos_data = datos_preset["dampers_pos_data"]
+
+        st.sidebar.success("✅ Datos aplicados.")
+        st.rerun() 
     except Exception as e:
-        st.sidebar.error(f"Error al procesar el archivo: {e}")
+        st.sidebar.error(f"Error: {e}")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
-
-
 
 # --- SECCIÓN: PESTAÑAS ---
 st.header("🧱 Configuración del Sistema")

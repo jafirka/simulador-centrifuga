@@ -298,31 +298,40 @@ st.markdown("Modifica los valores en la barra lateral para ver el impacto en las
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
 st.sidebar.header("Parámetros de cálculos")
 
-# --- LOGICA DE CARGA (Reset Maestro) ---
-archivo_subido = st.sidebar.file_uploader("📂 Importar archivo JSON", type=["json"])
-
+# --- LOGICA DE CARGA MEJORADA ---
+archivo_subido = st.sidebar.file_uploader("📂 Importar archivo de configuración (.json)", type=["json"])
 if archivo_subido is not None:
     try:
-        datos_nuevos = json.load(archivo_subido)
+        # En cuanto se sube un archivo, se procesa automáticamente.
+        datos_preset = json.load(archivo_subido)
+        # --- MODIFICACIÓN CLAVE ---
+        # Este enfoque es más robusto. En lugar de borrar todo, actualizamos
+        # selectivamente los valores del archivo JSON. Así, si el JSON solo 
+        # contiene datos parciales, no se rompe la aplicación.
+        if "componentes_data" in datos_preset:
+            for nombre_componente, data_componente in datos_preset["componentes_data"].items():
+                # Verificamos que el componente del JSON exista en el estado de la sesión
+                if nombre_componente in st.session_state.componentes_data:
+                    
+                    # Actualizamos 'm', 'pos', e 'I' si están en el archivo.
+                    # Si no están, los valores actuales en la sesión no se modifican.
+                    if "m" in data_componente:
+                        st.session_state.componentes_data[nombre_componente]["m"] = data_componente["m"]
+                    if "pos" in data_componente:
+                        st.session_state.componentes_data[nombre_componente]["pos"] = data_componente["pos"]
+                    if "I" in data_componente:
+                        st.session_state.componentes_data[nombre_componente]["I"] = data_componente["I"]
         
-        if st.sidebar.button("🚀 Aplicar y Resetear Interfaz"):
-            # 1. Almacenamos los datos nuevos temporalmente
-            temp_data = copy.deepcopy(datos_nuevos)
-            
-            # 2. LIMPIEZA: Borramos TODO el session_state
-            # Esto elimina la 'basura' de los widgets viejos
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            
-            # 3. RE-INYECCIÓN: Volcamos los datos del JSON
-            for key, value in temp_data.items():
-                st.session_state[key] = value
-                
-            st.sidebar.success("✅ Datos cargados. Reiniciando...")
-            st.rerun() # Obliga a los widgets a nacer con los nuevos valores
-            
+        # Aquí puedes añadir más lógica para actualizar otras partes del estado si es necesario
+        # Por ejemplo:
+        # if "otra_clave_importante" in datos_preset:
+        #     st.session_state.otra_clave_importante = datos_preset["otra_clave_importante"]
+        st.sidebar.success("✅ Datos del JSON aplicados correctamente.")
+        
+        # Forzamos un refresco de la app para mostrar los cambios inmediatamente.
+        st.rerun()
     except Exception as e:
-        st.sidebar.error(f"Error en formato: {e}")
+        st.sidebar.error(f"Error al procesar el archivo: {e}")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)

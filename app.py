@@ -363,11 +363,11 @@ with tab_config:
         opciones_diametro = [800, 1000, 1250, 1400, 1600, 1800, 2000]
 
         # Simplificado: Calculamos el índice directamente en una línea
+        # Al no tener 'key', el selectbox obedecerá siempre al 'index' que viene del JSON
         diametro_sel = st.selectbox(
             "Tamaño de cesto (Diámetro en mm):", 
             opciones_diametro, 
-            index=opciones_diametro.index(st.session_state.configuracion_sistema.get("diametro_cesto", 1250)),
-            key="widget_diametro_cesto"
+            index=opciones_diametro.index(st.session_state.configuracion_sistema.get("diametro_cesto", 1250))
         )
 
         # 3. Calculamos la excentricidad (Radio en metros)

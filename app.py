@@ -437,14 +437,8 @@ with tab_comp:
             c_m, c_p = st.columns([1, 2])
             with c_m:
                 # Eliminamos la 'key' interna para que mande el 'value' del Log
-<<<<<<< HEAD
                 m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)))
-            
 
-=======
-                #m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)))
-                m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)), key=f"m_val_{nombre}" ) # Key única para persistencia
->>>>>>> 3689f5ac1a77a3325b6e5e01e5a2e5983487491e
             with c_p:
                 cx, cy, cz = st.columns(3)
             px = cx.number_input(f"X [m]", value=float(pos_actual[0]), format="%.3f", key=f"x_{nombre}")

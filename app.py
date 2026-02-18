@@ -297,34 +297,37 @@ st.sidebar.header("Parámetros de cálculos")
 
 # --- LOGICA DE CARGA MEJORADA ---
 archivo_subido = st.sidebar.file_uploader("📂 Importar archivo de configuración (.json)", type=["json"])
+
 if archivo_subido is not None:
-    try:
-        datos_preset = json.load(archivo_subido)
-        
-        # 1. Componentes (Bancada, Motor, Cesto)
-        if "componentes_data" in datos_preset:
-            for nombre, data in datos_preset["componentes_data"].items():
-                if nombre in st.session_state.componentes_data:
-                    st.session_state.componentes_data[nombre].update(data)
-        
-        # 2. Placa de Inercia
-        if "placa_data" in datos_preset:
-            st.session_state.placa_data.update(datos_preset["placa_data"])
+    # Creamos una marca única para el archivo basada en su nombre o tamaño
+    file_id = f"{archivo_subido.name}_{archivo_subido.size}"
+    
+    # SOLO procesamos si el archivo es diferente al que ya procesamos
+    if st.session_state.get("last_loaded_file") != file_id:
+        try:
+            datos_preset = json.load(archivo_subido)
             
-        # 3. Configuración del Sistema
-        if "configuracion_sistema" in datos_preset:
-            st.session_state.configuracion_sistema.update(datos_preset["configuracion_sistema"])
+            # Actualizamos los componentes (bancada, motor, cesto)
+            if "componentes_data" in datos_preset:
+                for nombre, data in datos_preset["componentes_data"].items():
+                    if nombre in st.session_state.componentes_data:
+                        st.session_state.componentes_data[nombre].update(data)
+            
+            # Actualizamos placa y sistema
+            if "placa_data" in datos_preset:
+                st.session_state.placa_data.update(datos_preset["placa_data"])
+            
+            if "configuracion_sistema" in datos_preset:
+                st.session_state.configuracion_sistema.update(datos_preset["configuracion_sistema"])
 
-        # 4. Tablas de Dampers (Sobreescritura completa para asegurar consistencia)
-        if "dampers_prop_data" in datos_preset:
-            st.session_state.dampers_prop_data = datos_preset["dampers_prop_data"]
-        if "dampers_pos_data" in datos_preset:
-            st.session_state.dampers_pos_data = datos_preset["dampers_pos_data"]
-
-        st.sidebar.success("✅ Configuración cargada con éxito")
-        st.rerun() 
-    except Exception as e:
-        st.sidebar.error(f"Error al procesar el archivo: {e}")
+            # Guardamos la marca de que este archivo ya se procesó
+            st.session_state["last_loaded_file"] = file_id
+            
+            st.sidebar.success("✅ Configuración aplicada")
+            st.rerun() 
+            
+        except Exception as e:
+            st.sidebar.error(f"Error al procesar: {e}")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
@@ -369,7 +372,6 @@ with tab_config:
 
         # 3. Calculamos la excentricidad (Radio en metros)
         e_unbalance = (diametro_sel / 1000) / 2
-
 
         # Determinar el plano del rotor en función del eje vertical
         if eje_vertical == 'x':
@@ -623,9 +625,7 @@ datos_a_exportar = {
     "configuracion_sistema": {
         "eje_vertical": st.session_state.configuracion_sistema["eje_vertical"],
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"],
-        "m_unbalance": m_unbalance, # El valor del slider lateral
-        "diametro_cesto": st.session_state.configuracion_sistema["diametro_cesto"], # <-- IMPORTANTE
-        "rpm_nominal": rpm_obj,     # El valor del input lateral
+        "diametro_cesto": st.session_state.configuracion_sistema["diametro_cesto"], 
         "sensor_pos": st.session_state.configuracion_sistema["sensor_pos"]
     },
     # Los diccionarios de componentes (Bancada, Motor, Cesto)

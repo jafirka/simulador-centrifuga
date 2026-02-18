@@ -429,7 +429,7 @@ with tab_comp:
             with c_m:
                 # Eliminamos la 'key' interna para que mande el 'value' del Log
                 #m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)))
-                m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)), key=f"m_input_{nombre}" ) # Key única para persistencia
+                m_val = st.number_input(f"Masa {nombre} (kg)", value=float(datos_memoria.get("m", 0.0)), key=f"m_val_{nombre}" ) # Key única para persistencia
             with c_p:
                 cx, cy, cz = st.columns(3)
             px = cx.number_input(f"X [m]", value=float(pos_actual[0]), format="%.3f", key=f"x_{nombre}")
@@ -1076,6 +1076,7 @@ if st.button("Preparar Informe para PDF"):
         }
         </style>
     """, unsafe_allow_html=True)
+
 
 
 

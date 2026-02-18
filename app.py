@@ -301,30 +301,30 @@ if archivo_subido is not None:
     try:
         datos_preset = json.load(archivo_subido)
         
-        # 1. Actualizar Componentes (Bancada, Motor, Cesto)
+        # 1. Componentes (Bancada, Motor, Cesto)
         if "componentes_data" in datos_preset:
             for nombre, data in datos_preset["componentes_data"].items():
                 if nombre in st.session_state.componentes_data:
                     st.session_state.componentes_data[nombre].update(data)
         
-        # 2. Actualizar Placa de Inercia
+        # 2. Placa de Inercia
         if "placa_data" in datos_preset:
             st.session_state.placa_data.update(datos_preset["placa_data"])
             
-        # 3. Actualizar Configuración del Sistema
+        # 3. Configuración del Sistema
         if "configuracion_sistema" in datos_preset:
             st.session_state.configuracion_sistema.update(datos_preset["configuracion_sistema"])
 
-        # 4. Actualizar Dampers (¡Muy importante!)
+        # 4. Tablas de Dampers (Sobreescritura completa para asegurar consistencia)
         if "dampers_prop_data" in datos_preset:
             st.session_state.dampers_prop_data = datos_preset["dampers_prop_data"]
         if "dampers_pos_data" in datos_preset:
             st.session_state.dampers_pos_data = datos_preset["dampers_pos_data"]
 
-        st.sidebar.success("✅ Datos aplicados.")
+        st.sidebar.success("✅ Configuración cargada con éxito")
         st.rerun() 
     except Exception as e:
-        st.sidebar.error(f"Error: {e}")
+        st.sidebar.error(f"Error al procesar el archivo: {e}")
 
 # Ejemplo de cómo modificar la masa de desbalanceo y RPM
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)

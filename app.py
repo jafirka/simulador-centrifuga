@@ -359,19 +359,13 @@ with tab_config:
         # --- DENTRO DE tab_config ---
         opciones_diametro = [800, 1000, 1250, 1400, 1600, 1800, 2000]
 
-        # 1. Recuperamos el valor del log para posicionar el índice
-        diam_actual = st.session_state.configuracion_sistema.get("diametro_cesto", 1250)
-        idx_diam = opciones_diametro.index(diam_actual) if diam_actual in opciones_diametro else 2
-
+        # Simplificado: Calculamos el índice directamente en una línea
         diametro_sel = st.selectbox(
             "Tamaño de cesto (Diámetro en mm):", 
             opciones_diametro, 
-            index=idx_diam,
+            index=opciones_diametro.index(st.session_state.configuracion_sistema.get("diametro_cesto", 1250)),
             key="widget_diametro_cesto"
         )
-
-        # 2. Log automático y cálculo derivado
-        st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
 
         # 3. Calculamos la excentricidad (Radio en metros)
         e_unbalance = (diametro_sel / 1000) / 2
@@ -407,7 +401,7 @@ with tab_config:
 st.session_state.configuracion_sistema["eje_vertical"] = eje_vertical
 st.session_state.configuracion_sistema["distancia_eje"] = distancia_eje
 st.session_state.configuracion_sistema["sensor_pos"] = [sensor_x, sensor_y, sensor_z] 
-
+st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:

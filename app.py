@@ -397,7 +397,7 @@ def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
     
     # 1. Obtener datos del modelo
     p = modelo.dims
-    pos_p = modelo.pos_placa
+    pos_p = modelo.componentes["placa"]["pos"]
     # Calculamos el CG global para graficarlo
     _, _, _, cg_global = modelo.armar_matrices()
 

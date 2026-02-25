@@ -564,7 +564,7 @@ with tab_comp:
     subtabs = st.tabs(["Bancada", "Accionamiento", "Cesto", "Placa inercia"])
     
     # Mapeo de nombres para session_state
-    nombres_llaves = ["bancada", "cesto", "Accionamiento"]
+    nombres_llaves = ["bancada", "cesto", "motor"]
 
     for i, nombre in enumerate(nombres_llaves):
         with subtabs[i]:

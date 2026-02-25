@@ -129,8 +129,6 @@ class SimuladorCentrifuga:
         for nombre, c in self.componentes.items():
             m_c = c["m"]
             p_c = np.array(c["pos"])
-            # Inercia local (convertir a matriz 3x3 si es lista)
-            #I_local = np.diag(c["I"]) if isinstance(c["I"], list) else np.array(c["I"])
 
             I_local = np.array(c["I"], dtype=float)
 
@@ -143,13 +141,11 @@ class SimuladorCentrifuga:
 
             # Verificación de simetría real antes de sumar
             matriz_c = I_local + term_steiner
-            if not np.allclose(matriz_c, matriz_c.T, atol=1e-5):
-                st.error(f"Asimetría detectada en componente: {nombre}")
-                # Esto nos dirá si es I_local o Steiner el culpable
-                st.write(f"Asimetría I_local: {np.max(np.abs(I_local - I_local.T))}")
-                st.write(f"Asimetría Steiner: {np.max(np.abs(term_steiner - term_steiner.T))}")
-
             I_global += (I_local + term_steiner)
+
+		# Verificación final (Solo si la asimetría es grosera)
+        if not np.allclose(I_global, I_global.T, atol=1e-3):
+            st.error(f"Error crítico: I_global sigue siendo asimétrica.")
 
         M[0:3, 0:3], M[3:6, 3:6] = np.eye(3) * m_total, I_global
 

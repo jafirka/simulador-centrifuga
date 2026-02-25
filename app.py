@@ -46,7 +46,7 @@ class SimuladorCentrifuga:
         # --- Parámetros de la Placa ---
         p = config['placa']
         l_a, l_b, esp = p['lado_a'], p['lado_b'], p['espesor']
-		dist_x = p.get('Dist_x', 0.0)
+        dist_x = p.get('Dist_x', 0.0)
         dist_z = p.get('Dist_z', 0.0)
 
         r = p['radio_agujero']

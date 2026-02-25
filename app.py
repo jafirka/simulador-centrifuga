@@ -1041,11 +1041,11 @@ st.subheader(f"Comparativa de fuerza vertical en el Damper {lista_dampers_config
 
 fig6, ax6 = plt.subplots(figsize=(10, 4))
 # --- CASO BASE (Líneas punteadas o grises) ---
-ax6.plot(rpm_range, D_fuerza[y], color="gray", linestyle="--", alpha=0.5, label="Base X")
+ax6.plot(rpm_range, D_fuerza["y"], color="gray", linestyle="--", alpha=0.5, label="Base X")
 # --- PROPUESTA (Colores vivos) ---
-ax6.plot(rpm_range, fuerza_prop[1], color="tab:blue", label="Propuesta X")
-Fy_orig_1100 = D_fuerza[1][idx_op]
-Fy_prop_1100 = fuerza_prop[1][idx_op]
+ax6.plot(rpm_range, fuerza_prop["y"], color="tab:blue", label="Propuesta X")
+Fy_orig_1100 = D_fuerza["y"][idx_op]
+Fy_prop_1100 = fuerza_prop["y"][idx_op]
 # --- Anotaciones ---
 plt.annotate(
     f'{Fz_prop_1100:.0f} N',

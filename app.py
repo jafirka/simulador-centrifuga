@@ -1049,15 +1049,15 @@ Fy_prop_1100 = fuerza_prop["y"][idx_op]
 # --- Anotaciones ---
 plt.annotate(
     f'{Fy_prop_1100:.0f} N',
-    xy=(rpm_obj, Fz_prop_1100),
-    xytext=(rpm_obj+80, Fz_prop_1100*1.25),
+    xy=(rpm_obj, Fy_prop_1100),
+    xytext=(rpm_obj+80, Fy_prop_1100*1.25),
     arrowprops=dict(arrowstyle='->', color='blue'),
     color='blue'
 )
 plt.annotate(
     f'{Fy_orig_1100:.0f} N',
-    xy=(rpm_obj, Fz_orig_1100),
-    xytext=(rpm_obj+80, Fz_orig_1100*0.85),
+    xy=(rpm_obj, Fy_orig_1100),
+    xytext=(rpm_obj+80, Fy_orig_1100*0.85),
     arrowprops=dict(arrowstyle='->', color='gray'),
     color='gray'
 )

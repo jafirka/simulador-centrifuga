@@ -398,7 +398,7 @@ def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
     # 1. Obtener datos del modelo
     p = modelo.dims
     pos_p = modelo.componentes["placa"]["pos"]
-    st.write(f"Posición placa: {pos_p}")
+
     # Calculamos el CG global para graficarlo
     _, _, _, cg_global = modelo.armar_matrices()
 
@@ -556,7 +556,7 @@ st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:
-    subtabs = st.tabs(["Bancada", "Accionamiento", "Cesto", "Placa inercia"])
+    subtabs = st.tabs(["Bancada", "Cesto", "Accionamiento",  "Placa inercia"])
     
     # Mapeo de nombres para session_state
     nombres_llaves = ["bancada", "cesto", "motor"]
@@ -599,7 +599,6 @@ with tab_comp:
 # 2. ✅ Datos de la Placa de Inercia
 with subtabs[3]:
     st.write("### Parámetros Geométricos de la Placa")
-    
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -760,7 +759,6 @@ config_prop["placa"]["espesor"] = esp_prop
 config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
 
 # --- 4. EJECUTAR AMBAS SIMULACIONES ---
-st.write("Datos que entran al modelo:", config_base["placa"])
 modelo_base = SimuladorCentrifuga(config_base)
 modelo_prop = SimuladorCentrifuga(config_prop)
 
@@ -1246,7 +1244,7 @@ datos_a_exportar = {
     },
     # Los diccionarios de componentes (Bancada, Cesto)
     "componentes_data": st.session_state.componentes_data,
-    "placa": st.session_state.placa_data,    
+    "placa_data": st.session_state.placa_data,    
     # Las dos tablas de los Dampers (Propiedades y Ubicaciones)
     "dampers_prop_data": st.session_state.dampers_prop_data,
     "dampers_pos_data": st.session_state.dampers_pos_data

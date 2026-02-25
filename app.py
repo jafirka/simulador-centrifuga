@@ -760,6 +760,7 @@ config_prop["placa"]["espesor"] = esp_prop
 config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
 
 # --- 4. EJECUTAR AMBAS SIMULACIONES ---
+st.write("Datos que entran al modelo:", config_base["placa"])
 modelo_base = SimuladorCentrifuga(config_base)
 modelo_prop = SimuladorCentrifuga(config_prop)
 

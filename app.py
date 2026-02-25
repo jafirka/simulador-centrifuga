@@ -142,8 +142,8 @@ class SimuladorCentrifuga:
 		# Verificación final (Solo si la asimetría es grosera)
         if not np.allclose(I_global, I_global.T, atol=1e-6):
             st.error(f"Error crítico: I_global sigue siendo asimétrica.")
-			st.matrix(I_global) # st.matrix es genial para ver tensores
-			sd
+            st.matrix(I_global) # st.matrix es genial para ver tensores
+			
 
         M[0:3, 0:3], M[3:6, 3:6] = np.eye(3) * m_total, I_global
 

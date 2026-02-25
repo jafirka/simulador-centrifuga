@@ -46,41 +46,37 @@ class SimuladorCentrifuga:
         # --- Parámetros de la Placa ---
         p = config['placa']
         l_a, l_b, esp = p['lado_a'], p['lado_b'], p['espesor']
-        dist_A, dist_B = p.get('dist_A', 0), p.get('dist_B', 0)
+		dist_x = p.get('Dist_x', 0.0)
+        dist_z = p.get('Dist_z', 0.0)
+
         r = p['radio_agujero']
         rho = 7850 # kg/m^3 (Acero)
-
-	# --- Mapeo dinámico de dimensiones a ejes X, Y, Z ---
-        # El espesor siempre va en el eje vertical. 
-        # Los lados a y b se reparten en los ejes restantes.
+		
+		# Mapeo de dimensiones: dx=X, dy=Y(Vertical), dz=Z
         dx, dy, dz = l_a, esp, l_b
-        pos_placa = [dist_A, 0, dist_B]
         self.dims = {'x': dx, 'y': dy, 'z': dz}
-
-        # 1. Masa: Masa total - Masa del agujero
+        self.pos_placa = [dist_x, 0.0, dist_z]
+		
+        # Masa: Masa total - Masa del agujero
         m_total = (dx * dy * dz) * rho
         m_agujero = (math.pi * r**2 * esp) * rho
         self.m_placa = m_total - m_agujero
 
-	# 2. Inercias respecto al CG de la placa
-        # Eje Y (Eje de giro / Polar del agujero)
-        Iy_b = (1/12) * m_total * (l_a**2 + l_b**2)
-        Iy_a = (1/2) * m_agujero * r**2
-        
-        # Eje X (Diametral del agujero)
-        Ix_b = (1/12) * m_total * (l_b**2 + esp**2)
-        Ix_a = (1/4) * m_agujero * (r**2 + (esp**2)/3)
-        
-        # Eje Z (Diametral del agujero)
-        Iz_b = (1/12) * m_total * (l_a**2 + esp**2)
-        Iz_a = (1/4) * m_agujero * (r**2 + (esp**2)/3)
+		# Cálculo de Inercias Locales (Respecto al CG de la placa)
+        # Eje Y: Polar
+        Iy = (1/12) * m_total * (l_a**2 + l_b**2) - (1/2) * m_agujero * r**2
+        # Eje X: Diametral
+        Ix = (1/12) * m_total * (l_b**2 + esp**2) - (1/4) * m_agujero * (r**2 + (esp**2)/3)
+        # Eje Z: Diametral
+        Iz = (1/12) * m_total * (l_a**2 + esp**2) - (1/4) * m_agujero * (r**2 + (esp**2)/3)
 
-        self.I_placa = [Ix_b - Ix_a, Iy_b - Iy_a, Iz_b - Iz_a]
+        # Representamos como matriz 3x3 para evitar errores en armar_matrices
+        self.I_placa = [
+            [Ix, 0, 0],
+            [0, Iy, 0],
+            [0, 0, Iz]
+        ]
         
-        # Posición del componente (usando dist_A y dist_B en el plano XZ)
-        self.pos_placa = [p.get('dist_A', 0), 0, p.get('dist_B', 0)]
-
-
         # --- Componentes ---
         self.componentes = {
             "placa": {"m": self.m_placa, "pos": pos_placa, "I": self.I_placa},
@@ -463,7 +459,7 @@ def inicializar_estado_del_simulador():
     if 'placa_data' not in st.session_state:
             st.session_state.placa_data = {
             "lado_a": 2.4, "lado_b": 2.4, "espesor": 0.1, 
-            "radio_agujero": 0.5, "dist_A": 0.0, "dist_B": 0.0
+            "radio_agujero": 0.5, "Dist_x": 0.0, "Dist_z": 0.0
         }
     if 'configuracion_sistema' not in st.session_state:
         st.session_state.configuracion_sistema = {
@@ -625,12 +621,12 @@ with subtabs[3]:
     col_p1, col_p2 = st.columns(2)
     
     with col_p1:
-        dist_A = st.number_input(f"Desfase en x (dist_A)", 
-                                 value=float(st.session_state.placa_data.get("dist_A", 0.0)), 
+        Dist_x = st.number_input(f"Desfase en x (Dist_x)", 
+                                 value=float(st.session_state.placa_data.get("Dist_x", 0.0)), 
                                  step=0.1)
     with col_p2:
-        dist_B = st.number_input(f"Desfase en z (dist_B)", 
-                                 value=float(st.session_state.placa_data.get("dist_B", 0.0)), 
+        Dist_z = st.number_input(f"Desfase en z (Dist_z)", 
+                                 value=float(st.session_state.placa_data.get("Dist_z", 0.0)), 
                                  step=0.1)
 
     # ✅ ACTUALIZACIÓN DEL LOG (Sincronización inmediata)
@@ -640,8 +636,8 @@ with subtabs[3]:
         "lado_b": lado_b,
         "espesor": espesor,
         "radio_agujero": radio_agujero,
-        "dist_A": dist_A,
-        "dist_B": dist_B
+        "Dist_x": Dist_x,
+        "Dist_z": Dist_z
     })
 
 

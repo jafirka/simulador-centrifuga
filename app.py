@@ -261,10 +261,10 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
         # resultados de los dampers cuando el sistema es geométricamente espejo.
         # =========================================================================
 
-	# --- NUEVA LÓGICA PARA EJE DE ROTACIÓN VERTICAL (Y) ---
-	lx_exc = -cg_global[0]
-	ly_exc = ex['distancia_eje'] - cg_global[1] # 'dist' ahora es la altura sobre el CG
-	lz_exc = -cg_global[2]
+		# --- NUEVA LÓGICA PARA EJE DE ROTACIÓN VERTICAL (Y) ---
+		lx_exc = -cg_global[0]
+		ly_exc = ex['distancia_eje'] - cg_global[1] # 'dist' ahora es la altura sobre el CG
+		lz_exc = -cg_global[2]
 
         F = np.array([
           F0,                     # Fx (Centrífuga en X)

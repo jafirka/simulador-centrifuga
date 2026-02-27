@@ -7,3 +7,4 @@ plotly
 xlsxwriter
 fpdf
 requests
+pillow

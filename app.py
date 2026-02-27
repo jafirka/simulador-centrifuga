@@ -12,7 +12,7 @@ from plotly.subplots import make_subplots
 import requests
 import base64
 import io
-
+from fpdf import FPDF # <--- AGREGAR ESTA LÍNEA
 
 
 
@@ -447,6 +447,49 @@ def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
     return fig
 
 
+def generar_pdf(config_base, f_res, tabla_fuerzas):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    
+    # Título
+    pdf.cell(200, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", ln=True, align="C")
+    pdf.ln(10)
+    
+    # Sección 1: Parámetros
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "1. Configuracion del Sistema", ln=True)
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 7, f"Masa de Desbalanceo: {config_base['excitacion']['m_unbalance']} kg", ln=True)
+    pdf.cell(0, 7, f"RPM de operacion: {config_base['excitacion'].get('rpm_obj', 'N/A')}", ln=True)
+    pdf.ln(5)
+
+    # Sección 2: Frecuencias Naturales
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "2. Frecuencias Naturales Identificadas (RPM)", ln=True)
+    pdf.set_font("Arial", "", 10)
+    f_texto = ", ".join([f"{int(f)}" for f in f_res[:6]])
+    pdf.multi_cell(0, 7, f_texto)
+    pdf.ln(5)
+
+    # Sección 3: Tabla de Fuerzas
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, "3. Reacciones en Apoyos (Estacionario)", ln=True)
+    pdf.set_font("Arial", "", 8)
+    # Encabezados de tabla
+    pdf.cell(40, 7, "Damper", 1)
+    pdf.cell(40, 7, "Carga Est. [N]", 1)
+    pdf.cell(40, 7, "Carga Tot. Max [N]", 1)
+    pdf.ln()
+    
+    for _, row in tabla_fuerzas.iterrows():
+        pdf.cell(40, 7, str(row["Damper"]), 1)
+        pdf.cell(40, 7, str(row["Carga Estática [N]"]), 1)
+        pdf.cell(40, 7, str(row["Carga TOTAL MÁX [N]"]), 1)
+        pdf.ln()
+
+    return pdf.output(dest="S").encode("latin-1")
+
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
 # ==========================================
@@ -492,6 +535,13 @@ st.set_page_config(layout="wide")
 inicializar_estado_del_simulador()
 
 st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
+st.info("""
+**Guía rápida de uso:**
+1. Ajusta la **Masa y RPM** en la barra lateral.
+2. Define geometría y pesos en **📦 Componentes**.
+3. Configura los apoyos en **🛡️ Configuración de Dampers**.
+4. Compara el diseño actual con una **Propuesta** usando los sliders inferiores de la barra lateral.
+""")
 st.markdown("Modifica los valores en la barra lateral para ver el impacto en las vibraciones.")
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
@@ -502,6 +552,8 @@ st.sidebar.header("Parámetros de cálculos")
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
+
+
 # --- SECCIÓN: PESTAÑAS ---
 st.header("🧱 Configuración del Sistema")
 
@@ -511,7 +563,8 @@ tab_config, tab_comp, tab_dampers, = st.tabs([ "⚙️ Configuración del Sistem
 
 # 1️⃣ CONFIGURACION DE SISTEMA
 with tab_config:
-    st.subheader("Configuración de Ejes y Convención")
+    st.subheader("Configuración de Soste,a")
+	st.warning("⚠️ **Orientación:** El eje **Y** es vertical (Gravedad). El **X** está orientado hacia el motor y el eje **Z** queda definido por regla de mano derecha.")
     # 1. Leemos del "log" (session_state) para establecer el valor inicial
     distancia_eje = st.number_input(
         "Coordenada horizontal de la masa de desbalanceo (m)", 
@@ -647,7 +700,7 @@ with subtabs[3]:
 # 2️⃣ GESTIÓN DE DAMPERS
 with tab_dampers:
     st.write("### 1. Definición de Propiedades por Tipo")
-    
+    st.caption("Define aquí los modelos de damper. Puedes agregar filas nuevas al final de la tabla.")
     # Editor de Propiedades: Sincronización directa con el Log
     df_prop_editada = st.data_editor(
         st.session_state.dampers_prop_data,
@@ -750,8 +803,35 @@ d_idx = int(seleccion.split(":")[0])
 
 # --- 2. INTERFAZ PARA LA PROPUESTA (Sliders) ---
 st.sidebar.header("Variaciones de la Propuesta")
+st.sidebar.write("👇 *Ajusta estos valores para ver la línea punteada en los gráficos:*")
 esp_prop = st.sidebar.slider("Espesor Propuesta [mm]", 40.0, 140.0, 100.0) / 1000
 pos_x_motor_prop = st.sidebar.slider("Posición X Motor Propuesta [m]", 1.2, 1.8, 1.6)
+
+# --- BUSCAR ESTA LÍNEA (Aprox 560): pos_x_motor_prop = st.sidebar.slider(...)
+# --- PEGAR DEBAJO:
+
+st.sidebar.divider()
+st.sidebar.subheader("📄 Reporte Oficial")
+
+if st.sidebar.button("Generar Informe PDF"):
+    try:
+        # 1. Calculamos la tabla para el PDF con los datos actuales
+        df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
+        
+        # 2. Generamos el PDF
+        config_base['excitacion']['rpm_obj'] = rpm_obj
+        pdf_bytes = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf)
+        
+        # 3. Botón de descarga real
+        st.sidebar.download_button(
+            label="⬇️ Descargar PDF",
+            data=pdf_bytes,
+            file_name=f"Reporte_Centrifuga_{rpm_obj}RPM.pdf",
+            mime="application/pdf"
+        )
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
+
 
 # --- 3. CREAR CONFIGURACIÓN DINÁMICA ---
 config_prop = copy.deepcopy(config_base)

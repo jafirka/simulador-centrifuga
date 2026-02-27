@@ -5,6 +5,7 @@ matplotlib
 pandas
 plotly
 xlsxwriter
-fpdf
+fpdf2
 requests
 pillow
+

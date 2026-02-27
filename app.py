@@ -448,57 +448,54 @@ def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
 
 
 def generar_pdf(config_base, f_res, tabla_fuerzas, fig_planta, fig_vibraciones):
+    # Con fpdf2 no necesitas especificar 'Arial', usa 'helvetica' que es estándar
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("helvetica", "B", 16)
     
     # Título
-    pdf.cell(200, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", ln=True, align="C")
+    pdf.cell(0, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(10)
     
     # --- GRÁFICO 1: DISPOSICIÓN ---
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "1. Disposicion Fisica del Sistema", ln=True)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, "1. Disposicion Fisica del Sistema", new_x="LMARGIN", new_y="NEXT")
     
     img_buf = io.BytesIO()
     fig_planta.savefig(img_buf, format='png', bbox_inches='tight')
     img_buf.seek(0)
-    
-    # SOLUCIÓN AL ERROR: Usar un nombre ficticio y pasar el buffer en 'name'
-    # FPDF reconocerá el formato por la extensión ficticia .png
-    pdf.image(img_buf, x=10, y=None, w=100, type='PNG') 
+    pdf.image(img_buf, x=10, w=100) # fpdf2 maneja el buffer automáticamente
     pdf.ln(5)
 
     # --- GRÁFICO 2: VIBRACIONES ---
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "2. Analisis de Vibraciones (Fuerza vs Tiempo)", ln=True)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, "2. Analisis de Vibraciones (Fuerza vs Tiempo)", new_x="LMARGIN", new_y="NEXT")
     
     img_buf_2 = io.BytesIO()
     fig_vibraciones.savefig(img_buf_2, format='png', bbox_inches='tight')
     img_buf_2.seek(0)
-    
-    # Repetimos la lógica del buffer
-    pdf.image(img_buf_2, x=10, y=None, w=180, type='PNG')
+    pdf.image(img_buf_2, x=10, w=180)
 
     # --- TABLA DE FUERZAS ---
     pdf.add_page()
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "3. Reacciones en Apoyos", ln=True)
-    pdf.set_font("Arial", "", 8)
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, "3. Reacciones en Apoyos", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 8)
     
     # Encabezados
-    pdf.cell(45, 7, "Damper", 1)
-    pdf.cell(45, 7, "Carga Est. [N]", 1)
-    pdf.cell(45, 7, "Carga Tot. Max [N]", 1)
+    pdf.cell(45, 7, "Damper", border=1)
+    pdf.cell(45, 7, "Carga Est. [N]", border=1)
+    pdf.cell(45, 7, "Carga Tot. Max [N]", border=1)
     pdf.ln()
     
     for _, row in tabla_fuerzas.iterrows():
-        pdf.cell(45, 7, str(row["Damper"]), 1)
-        pdf.cell(45, 7, str(row["Carga Estática [N]"]), 1)
-        pdf.cell(45, 7, str(row["Carga TOTAL MÁX [N]"]), 1)
+        pdf.cell(45, 7, str(row["Damper"]), border=1)
+        pdf.cell(45, 7, str(row["Carga Estática [N]"]), border=1)
+        pdf.cell(45, 7, str(row["Carga TOTAL MÁX [N]"]), border=1)
         pdf.ln()
 
-    return pdf.output(dest="S").encode("latin-1", "replace")
+    # SOLUCIÓN AL ERROR: Simplemente output() sin encode
+    return pdf.output()
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)

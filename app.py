@@ -564,7 +564,7 @@ tab_config, tab_comp, tab_dampers, = st.tabs([ "⚙️ Configuración del Sistem
 # 1️⃣ CONFIGURACION DE SISTEMA
 with tab_config:
     st.subheader("Configuración de Soste,a")
-	st.warning("⚠️ **Orientación:** El eje **Y** es vertical (Gravedad). El **X** está orientado hacia el motor y el eje **Z** queda definido por regla de mano derecha.")
+    st.warning("⚠️ **Orientación:** El eje **Y** es vertical (Gravedad). El **X** está orientado hacia el motor y el eje **Z** queda definido por regla de mano derecha.")
     # 1. Leemos del "log" (session_state) para establecer el valor inicial
     distancia_eje = st.number_input(
         "Coordenada horizontal de la masa de desbalanceo (m)", 

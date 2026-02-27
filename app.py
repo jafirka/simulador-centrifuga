@@ -447,7 +447,7 @@ def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
     return fig
 
 
-def generar_pdf(config_base, f_res, tabla_fuerzas):
+def generar_pdf(config_base, f_res, tabla_fuerzas, fig_planta, fig_vibraciones):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
@@ -456,39 +456,51 @@ def generar_pdf(config_base, f_res, tabla_fuerzas):
     pdf.cell(200, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", ln=True, align="C")
     pdf.ln(10)
     
-    # Sección 1: Parámetros
+    # --- GRÁFICO 1: DISPOSICIÓN ---
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "1. Configuracion del Sistema", ln=True)
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(0, 7, f"Masa de Desbalanceo: {config_base['excitacion']['m_unbalance']} kg", ln=True)
-    pdf.cell(0, 7, f"RPM de operacion: {config_base['excitacion'].get('rpm_obj', 'N/A')}", ln=True)
+    pdf.cell(0, 10, "1. Disposicion Fisica del Sistema", ln=True)
+    
+    # Guardar gráfico de Matplotlib a imagen temporal
+    img_buf = io.BytesIO()
+    fig_planta.savefig(img_buf, format='png', bbox_inches='tight')
+    img_buf.seek(0)
+    
+    # Insertar imagen en PDF (x, y, ancho)
+    pdf.image(img_buf, x=10, y=None, w=100)
     pdf.ln(5)
 
-    # Sección 2: Frecuencias Naturales
+    # --- DATOS TÉCNICOS ---
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "2. Frecuencias Naturales Identificadas (RPM)", ln=True)
+    pdf.cell(0, 10, "2. Resultados de Calculo", ln=True)
     pdf.set_font("Arial", "", 10)
-    f_texto = ", ".join([f"{int(f)}" for f in f_res[:6]])
-    pdf.multi_cell(0, 7, f_texto)
+    pdf.cell(0, 7, f"Masa Desbalance: {config_base['excitacion']['m_unbalance']} kg  |  RPM: {config_base['excitacion'].get('rpm_obj')}", ln=True)
+    
+    # --- GRÁFICO 2: VIBRACIONES (Si es Matplotlib) ---
+    # Si quieres el gráfico de fuerza-tiempo:
     pdf.ln(5)
+    img_buf_2 = io.BytesIO()
+    fig_vibraciones.savefig(img_buf_2, format='png', bbox_inches='tight')
+    img_buf_2.seek(0)
+    pdf.image(img_buf_2, x=10, y=None, w=180)
 
-    # Sección 3: Tabla de Fuerzas
+    # --- TABLA DE FUERZAS ---
+    pdf.add_page() # Nueva página para la tabla si es necesario
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(0, 10, "3. Reacciones en Apoyos (Estacionario)", ln=True)
+    pdf.cell(0, 10, "3. Reacciones en Apoyos", ln=True)
     pdf.set_font("Arial", "", 8)
-    # Encabezados de tabla
-    pdf.cell(40, 7, "Damper", 1)
-    pdf.cell(40, 7, "Carga Est. [N]", 1)
-    pdf.cell(40, 7, "Carga Tot. Max [N]", 1)
+    
+    pdf.cell(45, 7, "Damper", 1)
+    pdf.cell(45, 7, "Carga Est. [N]", 1)
+    pdf.cell(45, 7, "Carga Tot. Max [N]", 1)
     pdf.ln()
     
     for _, row in tabla_fuerzas.iterrows():
-        pdf.cell(40, 7, str(row["Damper"]), 1)
-        pdf.cell(40, 7, str(row["Carga Estática [N]"]), 1)
-        pdf.cell(40, 7, str(row["Carga TOTAL MÁX [N]"]), 1)
+        pdf.cell(45, 7, str(row["Damper"]), 1)
+        pdf.cell(45, 7, str(row["Carga Estática [N]"]), 1)
+        pdf.cell(45, 7, str(row["Carga TOTAL MÁX [N]"]), 1)
         pdf.ln()
 
-    return pdf.output(dest="S").encode("latin-1")
+    return pdf.output(dest="S").encode("latin-1", "replace")
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
@@ -829,24 +841,6 @@ rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop,
 st.sidebar.divider()
 st.sidebar.subheader("📄 Reporte Oficial")
 
-if st.sidebar.button("Generar Informe PDF"):
-    try:
-        # 1. Calculamos la tabla para el PDF con los datos actuales
-        df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
-        
-        # 2. Generamos el PDF
-        config_base['excitacion']['rpm_obj'] = rpm_obj
-        pdf_bytes = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf)
-        
-        # 3. Botón de descarga real
-        st.sidebar.download_button(
-            label="⬇️ Descargar PDF",
-            data=pdf_bytes,
-            file_name=f"Reporte_Centrifuga_{rpm_obj}RPM.pdf",
-            mime="application/pdf"
-        )
-    except Exception as e:
-        st.sidebar.error(f"Error: {e}")
 
 
 
@@ -1336,3 +1330,29 @@ st.sidebar.download_button(
     help="Guarda todos los datos actuales en un archivo para usarlos después."
 )
 st.sidebar.write("---")
+
+# --- AL FINAL DEL ARCHIVO app.py ---
+st.sidebar.divider()
+st.sidebar.subheader("📄 Reporte con Gráficos")
+
+if st.sidebar.button("Generar Informe PDF Completo"):
+    try:
+        # Generamos los objetos visuales necesarios
+        fig_planta = dibujar_modelo_2d(modelo_base)
+        fig_vibraciones = graficar_fuerza_tiempo(modelo_base, rpm_obj, d_idx)
+        df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
+        
+        config_base['excitacion']['rpm_obj'] = rpm_obj
+        
+        # Pasamos las figuras a la función
+        pdf_bytes = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf, fig_planta, fig_vibraciones)
+        
+        st.sidebar.download_button(
+            label="⬇️ Descargar PDF con Gráficos",
+            data=pdf_bytes,
+            file_name=f"Reporte_Tecnico_Vibraciones.pdf",
+            mime="application/pdf"
+        )
+    except Exception as e:
+        st.sidebar.error(f"Error: {e}")
+

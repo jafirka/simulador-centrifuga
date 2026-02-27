@@ -1225,27 +1225,31 @@ if st.button("Preparar Informe para PDF"):
         </style>
     """, unsafe_allow_html=True)
 
-# --- AL FINAL DEL ARCHIVO app.py ---
+# --- AL FINAL DEL ARCHIVO ---
 if st.sidebar.button("Generar Informe PDF Completo"):
     try:
-        # Generamos los objetos visuales necesarios
         fig_planta = dibujar_modelo_2d(modelo_base)
         fig_vibraciones = graficar_fuerza_tiempo(modelo_base, rpm_obj, d_idx)
         df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
         
         config_base['excitacion']['rpm_obj'] = rpm_obj
         
-        # Pasamos las figuras a la función
-        pdf_bytes = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf, fig_planta, fig_vibraciones)
+        # Generamos el PDF
+        resultado_pdf = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf, fig_planta, fig_vibraciones)
+        
+        # FORZAMOS LA CONVERSIÓN A BYTES AQUÍ
+        pdf_final = bytes(resultado_pdf)
         
         st.sidebar.download_button(
-            label="⬇️ Descargar PDF con Gráficos",
-            data=pdf_bytes,
+            label="⬇️ Descargar PDF",
+            data=pdf_final,
             file_name=f"Reporte_Tecnico_Vibraciones.pdf",
             mime="application/pdf"
         )
     except Exception as e:
         st.sidebar.error(f"Error: {e}")
+
+
 
 st.sidebar.divider()
 st.sidebar.header("💾 Gestión de Archivos")

@@ -807,8 +807,24 @@ st.sidebar.write("👇 *Ajusta estos valores para ver la línea punteada en los 
 esp_prop = st.sidebar.slider("Espesor Propuesta [mm]", 40.0, 140.0, 100.0) / 1000
 pos_x_motor_prop = st.sidebar.slider("Posición X Motor Propuesta [m]", 1.2, 1.8, 1.6)
 
-# --- BUSCAR ESTA LÍNEA (Aprox 560): pos_x_motor_prop = st.sidebar.slider(...)
-# --- PEGAR DEBAJO:
+
+# --- 3. CREAR CONFIGURACIÓN DINÁMICA ---
+config_prop = copy.deepcopy(config_base)
+config_prop["placa"]["espesor"] = esp_prop
+config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
+
+# --- 4. EJECUTAR AMBAS SIMULACIONES ---
+modelo_base = SimuladorCentrifuga(config_base)
+modelo_prop = SimuladorCentrifuga(config_prop)
+
+f_res_rpm, modos = modelo_base.calcular_frecuencias_naturales()
+f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
+
+# RPM de operación
+rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
+idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
+rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
+rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
 
 st.sidebar.divider()
 st.sidebar.subheader("📄 Reporte Oficial")
@@ -831,26 +847,6 @@ if st.sidebar.button("Generar Informe PDF"):
         )
     except Exception as e:
         st.sidebar.error(f"Error: {e}")
-
-
-# --- 3. CREAR CONFIGURACIÓN DINÁMICA ---
-config_prop = copy.deepcopy(config_base)
-config_prop["placa"]["espesor"] = esp_prop
-config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
-
-# --- 4. EJECUTAR AMBAS SIMULACIONES ---
-modelo_base = SimuladorCentrifuga(config_base)
-modelo_prop = SimuladorCentrifuga(config_prop)
-
-f_res_rpm, modos = modelo_base.calcular_frecuencias_naturales()
-f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
-
-# RPM de operación
-rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
-idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
-rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
-rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
-
 
 
 

@@ -66,6 +66,7 @@ st.sidebar.header("Parámetros de cálculos")
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
+tipo_de_maquina = st.session_state.configuracion_sistema["tipo_de_maquina"]
 if tipo_de_maquina == "vertical":
     st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
 if tipo_de_maquina == "horizontal":

@@ -436,29 +436,40 @@ def dibujar_modelo_2d_vertical(modelo, titulo="Disposición de Planta (Plano XZ)
 
 
 def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centrífuga Horizontal"):
-    # Creamos una figura con dos subplots (Perfil y Planta)
+    # Creamos la figura con dos vistas
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
     
-    # 1. Obtener datos maestros
+    # 1. Datos maestros
     _, _, _, cg_global = modelo.armar_matrices()
     ex = modelo.excitacion
     radio_cesto = ex.get('e_unbalance', 0.625)
-    distancia_axial = ex.get('distancia_eje', 1.0) # Longitud del eje
+    distancia_axial = ex.get('distancia_eje', 1.0)
     
-    # --- VISTA DE PERFIL (Plano X-Y) ---
-    # En horizontal, el cesto se ve como un círculo desde el extremo (eje Z)
-    # o como un rectángulo desde el lado. Aquí simularemos la vista frontal (X-Y)
-    cesto_frontal = plt.Circle((0, 0), radio_cesto, color='blue', fill=False, ls='--', alpha=0.5, label='Rotor (Ø)')
+    # --- VISTA FRONTAL (PLANO X-Y) ---
+    # Cesto sombreado
+    cesto_frontal = plt.Circle((0, 0), radio_cesto, color='blue', fill=True, alpha=0.1, label='Cesto (Volumen)')
+    cesto_borde = plt.Circle((0, 0), radio_cesto, color='blue', fill=False, ls='--', alpha=0.5)
     ax1.add_patch(cesto_frontal)
+    ax1.add_patch(cesto_borde)
     
-    # Dibujar Dampers en Frontal
+    # Sombreado entre Dampers (Área de apoyo en X-Y)
+    if len(modelo.dampers) >= 3:
+        puntos_xy = np.array([d.pos[:2] for d in modelo.dampers])
+        # Ordenar puntos para cerrar el polígono (opcional si son 4)
+        poly_xy = plt.Polygon(puntos_xy, closed=True, color='gray', alpha=0.2, label='Área entre Apoyos')
+        ax1.add_patch(poly_xy)
+
+    # Dibujar Dampers
     for i, d in enumerate(modelo.dampers):
-        ax1.scatter(d.pos[0], d.pos[1], marker='s', s=80, color='black', alpha=0.7,
-                    label="Dampers" if i==0 else "")
+        ax1.scatter(d.pos[0], d.pos[1], marker='s', s=80, color='black', zorder=5)
         ax1.text(d.pos[0], d.pos[1] - 0.15, d.nombre, fontsize=7, ha='center')
 
-    # CG en Frontal
-    ax1.scatter(cg_global[0], cg_global[1], marker='*', s=200, color='red', edgecolor='black', zorder=10, label='CG Global')
+    # Posición del Desbalanceo (Masa)
+    ax1.scatter(radio_cesto, 0, color='red', s=100, edgecolors='black', label='Posición Desbalanceo', zorder=11)
+    ax1.plot([0, radio_cesto], [0, 0], color='red', ls=':', lw=1.5)
+
+    # CG Global
+    ax1.scatter(cg_global[0], cg_global[1], marker='*', s=250, color='gold', edgecolor='black', zorder=12, label=f'CG Total: {cg_global[0]:.2f}, {cg_global[1]:.2f}')
     
     ax1.set_title("Vista Frontal (X-Y)")
     ax1.set_xlabel("Eje X [m]")
@@ -466,25 +477,27 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     ax1.set_aspect('equal')
     ax1.grid(True, linestyle=':', alpha=0.3)
 
-    # --- VISTA DE PLANTA (Plano X-Z) ---
-    # Aquí el cesto horizontal se ve como un rectángulo largo
+    # --- VISTA DE PLANTA (PLANO X-Z) ---
+    # Cesto sombreado (Rectángulo)
     ancho_cesto = radio_cesto * 2
-    rect_cesto = plt.Rectangle(
-        (-radio_cesto, 0), ancho_cesto, distancia_axial,
-        linewidth=1.5, edgecolor='blue', facecolor='aliceblue', alpha=0.3, label='Cuerpo Cesto'
-    )
+    rect_cesto = plt.Rectangle((-radio_cesto, 0), ancho_cesto, distancia_axial, 
+                               color='blue', alpha=0.1, label='Cesto (Cuerpo)')
     ax2.add_patch(rect_cesto)
     
-    # Dibujar Dampers en Planta
-    for d in modelo.dampers:
-        ax2.scatter(d.pos[0], d.pos[2], marker='s', s=80, color='black', alpha=0.7)
-        ax2.text(d.pos[0], d.pos[2] + 0.1, d.nombre, fontsize=7, ha='center')
+    # Sombreado entre Dampers (Área de apoyo en planta)
+    if len(modelo.dampers) >= 3:
+        puntos_xz = np.array([[d.pos[0], d.pos[2]] for d in modelo.dampers])
+        poly_xz = plt.Polygon(puntos_xz, closed=True, color='gray', alpha=0.2)
+        ax2.add_patch(poly_xz)
 
-    # CG en Planta
-    ax2.scatter(cg_global[0], cg_global[2], marker='*', s=200, color='red', edgecolor='black', zorder=10)
+    # Dibujar Dampers y CG
+    for d in modelo.dampers:
+        ax2.scatter(d.pos[0], d.pos[2], marker='s', s=80, color='black', zorder=5)
     
-    # Eje de rotación (Línea central)
-    ax2.plot([0, 0], [0, distancia_axial], color='blue', ls='-.', lw=1, label='Eje de Rotación')
+    ax2.scatter(cg_global[0], cg_global[2], marker='*', s=250, color='gold', edgecolor='black', zorder=12)
+    
+    # Eje de rotación
+    ax2.plot([0, 0], [0, distancia_axial], color='blue', ls='-.', lw=1)
 
     ax2.set_title("Vista de Planta (X-Z)")
     ax2.set_xlabel("Eje X [m]")
@@ -492,10 +505,12 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     ax2.set_aspect('equal')
     ax2.grid(True, linestyle=':', alpha=0.3)
 
-    # Ajustes finales de la figura
+    # Configuración final de leyendas
     fig.suptitle(titulo, fontsize=14, fontweight='bold')
-    ax1.legend(loc='lower left', fontsize='small')
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    # Unificamos leyendas para que no se repitan
+    handles, labels = ax1.get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=3, fontsize='small', frameon=True)
+    plt.tight_layout(rect=[0, 0.08, 1, 0.95])
     
     return fig
 

@@ -343,7 +343,7 @@ def calcular_tabla_fuerzas(modelo, rpm_obj,usar_giroscopio=False, i_producto=0.0
     return pd.DataFrame(resumen)
 
 def graficar_fuerza_tiempo(modelo, rpm, d_idx,usar_giroscopio=False, i_producto=0.0):
-    res = ejecutar_barrido_rpm(modelo, [rpm], d_idx,usar_giroscopio=usar_giroscopio, i_producto=i_producto):
+    res = ejecutar_barrido_rpm(modelo, [rpm], d_idx,usar_giroscopio=usar_giroscopio, i_producto=i_producto)
     
     # IMPORTANTE: Si el barrido devuelve una lista de vectores complejos, 
     # tomamos el primero. Si devuelve solo uno, lo usamos directo.

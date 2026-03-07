@@ -119,7 +119,7 @@ with tab_config:
     ["vertical", "horizontal"],
     index=0 if maquina_init == "vertical" else 1,
     format_func=str.capitalize
-)
+    )
     # 3. Calculamos la excentricidad (Radio en metros)
     e_unbalance = (diametro_sel / 1000) / 2
        
@@ -350,7 +350,8 @@ f_res_rpm, modos = modelo_base.calcular_frecuencias_naturales()
 rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
 idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
 
-rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
+rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx, usar_giroscopico=usar_giroscopio, 
+    i_producto=i_producto)
 
 modelo_prop = None
 
@@ -369,7 +370,8 @@ if tipo_de_maquina == "vertical":
     modelo_prop = SimuladorCentrifuga(config_prop)
 
     f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
-    rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
+    rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx, usar_giroscopico=usar_giroscopio, 
+    i_producto=i_producto)
 
 
 st.sidebar.divider()

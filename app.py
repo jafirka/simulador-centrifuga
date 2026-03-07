@@ -775,7 +775,6 @@ if st.sidebar.button("🚀 Preparar Informe PDF Completo"):
             df_fuerzas_pdf, 
             fig_disposicion, 
             figs_dampers, # Pasamos la lista de gráficos
-            rpm_obj
         )
         
         pdf_final = bytes(resultado_pdf)

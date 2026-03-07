@@ -198,7 +198,7 @@ class SimuladorCentrifuga:
 
         return f_rpm, evecs
 
-def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_producto=0.0):
+def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopio=False, i_producto=0.0):
 
     M, K, C, cg_global = modelo.armar_matrices()
     T_sensor = modelo.obtener_matriz_sensor(cg_global)
@@ -242,7 +242,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_prod
             F0 * lz - (-1j * F0) * lx, # My = Fz*lx - Fx*lz (Momento Torsional en el eje Y)
             F0 * ly_exc             # Mz = Fx*ly - Fy*lx  -> (Fx*ly - 0)
             ])
-            if usar_giroscopico:
+            if usar_giroscopio:
                 # Acoplamiento Rx (3) y Ry (4)
                 # El término es Iz * Omega
                 G[3, 5] = val_g 
@@ -260,7 +260,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_prod
             ])
 
             # --- MATRIZ GIROSCÓPICA G ---
-            if usar_giroscopico:
+            if usar_giroscopio:
                 # Acoplamiento Rx (3) y Ry (4)
                 # El término es Iz * Omega
                 G[3, 4] = val_g

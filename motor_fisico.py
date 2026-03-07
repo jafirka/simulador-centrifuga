@@ -13,6 +13,8 @@ import requests
 import base64
 import io
 from fpdf import FPDF
+from scipy.spatial import ConvexHull
+
 
 
 # ==========================================
@@ -435,82 +437,98 @@ def dibujar_modelo_2d_vertical(modelo, titulo="Disposición de Planta (Plano XZ)
     return fig
 
 
+
+
 def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centrífuga Horizontal"):
-    # Creamos la figura con dos vistas
+    # Creamos la figura con dos vistas: Perfil (X-Y) y Planta (X-Z)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
     
-    # 1. Datos maestros
+    # 1. Obtención de datos maestros del modelo
     _, _, _, cg_global = modelo.armar_matrices()
     ex = modelo.excitacion
     radio_cesto = ex.get('e_unbalance', 0.625)
-    distancia_axial = ex.get('distancia_eje', 1.0)
+    distancia_axial_total = ex.get('distancia_eje', 1.5) # Longitud del rotor
     
-    # --- VISTA FRONTAL (PLANO X-Y) ---
-    # Cesto sombreado
-    cesto_frontal = plt.Circle((0, 0), radio_cesto, color='blue', fill=True, alpha=0.1, label='Cesto (Volumen)')
+    # --- VISTA FRONTAL / PERFIL (PLANO X-Y) ---
+    # Representación del cesto sombreado (Círculo)
+    cesto_frontal = plt.Circle((0, 0), radio_cesto, color='blue', fill=True, alpha=0.1, label='Cesto (Ø)')
     cesto_borde = plt.Circle((0, 0), radio_cesto, color='blue', fill=False, ls='--', alpha=0.5)
     ax1.add_patch(cesto_frontal)
     ax1.add_patch(cesto_borde)
     
-    # Sombreado entre Dampers (Área de apoyo en X-Y)
-    if len(modelo.dampers) >= 3:
-        puntos_xy = np.array([d.pos[:2] for d in modelo.dampers])
-        # Ordenar puntos para cerrar el polígono (opcional si son 4)
-        poly_xy = plt.Polygon(puntos_xy, closed=True, color='gray', alpha=0.2, label='Área entre Apoyos')
-        ax1.add_patch(poly_xy)
-
-    # Dibujar Dampers
+    # Dibujar Dampers en Frontal
     for i, d in enumerate(modelo.dampers):
-        ax1.scatter(d.pos[0], d.pos[1], marker='s', s=80, color='black', zorder=5)
-        ax1.text(d.pos[0], d.pos[1] - 0.15, d.nombre, fontsize=7, ha='center')
+        ax1.scatter(d.pos[0], d.pos[1], marker='s', s=100, color='black', zorder=5,
+                    label="Aisladores (Dampers)" if i==0 else "")
+        ax1.text(d.pos[0], d.pos[1] - 0.15, d.nombre, fontsize=8, ha='center', fontweight='bold')
 
-    # Posición del Desbalanceo (Masa)
-    ax1.scatter(radio_cesto, 0, color='red', s=100, edgecolors='black', label='Posición Desbalanceo', zorder=11)
-    ax1.plot([0, radio_cesto], [0, 0], color='red', ls=':', lw=1.5)
-
-    # CG Global
-    ax1.scatter(cg_global[0], cg_global[1], marker='*', s=250, color='gold', edgecolor='black', zorder=12, label=f'CG Total: {cg_global[0]:.2f}, {cg_global[1]:.2f}')
+    # Centro de Gravedad Global en Frontal
+    ax1.scatter(cg_global[0], cg_global[1], marker='*', s=300, color='gold', 
+                edgecolor='black', zorder=10, label=f'CG Total ({cg_global[0]:.2f}, {cg_global[1]:.2f})')
     
-    ax1.set_title("Vista Frontal (X-Y)")
+    ax1.set_title("Vista Frontal (Sección X-Y)", fontsize=12, pad=10)
     ax1.set_xlabel("Eje X [m]")
-    ax1.set_ylabel("Eje Y [m]")
+    ax1.set_ylabel("Eje Y (Altura) [m]")
     ax1.set_aspect('equal')
     ax1.grid(True, linestyle=':', alpha=0.3)
 
     # --- VISTA DE PLANTA (PLANO X-Z) ---
-    # Cesto sombreado (Rectángulo)
-    ancho_cesto = radio_cesto * 2
-    rect_cesto = plt.Rectangle((-radio_cesto, 0), ancho_cesto, distancia_axial, 
-                               color='blue', alpha=0.1, label='Cesto (Cuerpo)')
-    ax2.add_patch(rect_cesto)
-    
-    # Sombreado entre Dampers (Área de apoyo en planta)
+    # 2. Área sombreada entre Dampers (Corregida con ConvexHull)
     if len(modelo.dampers) >= 3:
         puntos_xz = np.array([[d.pos[0], d.pos[2]] for d in modelo.dampers])
-        poly_xz = plt.Polygon(puntos_xz, closed=True, color='gray', alpha=0.2)
-        ax2.add_patch(poly_xz)
+        try:
+            hull = ConvexHull(puntos_xz)
+            # Ordenamos los puntos perimetralmente para que el sombreado no se cruce
+            puntos_ordenados = puntos_xz[hull.vertices]
+            poly_xz = plt.Polygon(puntos_ordenados, closed=True, color='gray', alpha=0.2, label='Área de Apoyo')
+            ax2.add_patch(poly_xz)
+        except:
+            # Fallback simple si los puntos son colineales o hay error
+            pass
 
-    # Dibujar Dampers y CG
+    # Representación del cesto en planta (Rectángulo)
+    rect_cesto = plt.Rectangle((-radio_cesto, 0), radio_cesto*2, distancia_axial_total, 
+                               color='blue', alpha=0.1, label='Cuerpo del Cesto')
+    ax2.add_patch(rect_cesto)
+    
+    # Eje de rotación (Línea central)
+    ax2.plot([0, 0], [0, distancia_axial_total], color='blue', ls='-.', lw=1.5, alpha=0.6)
+
+    # Dibujar Dampers en Planta
     for d in modelo.dampers:
-        ax2.scatter(d.pos[0], d.pos[2], marker='s', s=80, color='black', zorder=5)
-    
-    ax2.scatter(cg_global[0], cg_global[2], marker='*', s=250, color='gold', edgecolor='black', zorder=12)
-    
-    # Eje de rotación
-    ax2.plot([0, 0], [0, distancia_axial], color='blue', ls='-.', lw=1)
+        ax2.scatter(d.pos[0], d.pos[2], marker='s', s=100, color='black', zorder=5)
 
-    ax2.set_title("Vista de Planta (X-Z)")
+    # 3. Representación del Desbalanceo (Masa) en Planta
+    if ex['m_unbalance'] > 0:
+        pos_z_unb = ex['distancia_eje'] # Posición axial
+        radio_unb = ex['e_unbalance']    # Posición radial (en X)
+        
+        # Punto rojo de la masa
+        ax2.scatter(radio_unb, pos_z_unb, color='red', s=150, edgecolor='black', 
+                    zorder=15, label=f"Desbalance ({ex['m_unbalance']}kg)")
+        # Línea de radio
+        ax2.plot([0, radio_unb], [pos_z_unb, pos_z_unb], color='red', ls='--', lw=2)
+
+    # CG Global en Planta
+    ax2.scatter(cg_global[0], cg_global[2], marker='*', s=300, color='gold', edgecolor='black', zorder=10)
+    
+    ax2.set_title("Vista de Planta (Superior X-Z)", fontsize=12, pad=10)
     ax2.set_xlabel("Eje X [m]")
-    ax2.set_ylabel("Eje Z (Longitud) [m]")
+    ax2.set_ylabel("Eje Z (Longitud axial) [m]")
     ax2.set_aspect('equal')
     ax2.grid(True, linestyle=':', alpha=0.3)
 
-    # Configuración final de leyendas
-    fig.suptitle(titulo, fontsize=14, fontweight='bold')
-    # Unificamos leyendas para que no se repitan
+    # Configuración de leyenda y títulos
+    fig.suptitle(titulo, fontsize=16, fontweight='bold', y=0.98)
     handles, labels = ax1.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', ncol=3, fontsize='small', frameon=True)
-    plt.tight_layout(rect=[0, 0.08, 1, 0.95])
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    
+    # Combinar leyendas únicas
+    by_label = dict(zip(labels + labels2, handles + handles2))
+    fig.legend(by_label.values(), by_label.keys(), loc='lower center', 
+               ncol=3, fontsize='medium', frameon=True, bbox_to_anchor=(0.5, -0.05))
+    
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     
     return fig
 

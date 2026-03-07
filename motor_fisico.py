@@ -237,7 +237,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_prod
             0,                      # Fy (Nula en el eje de rotación axial)
             -1j * F0,               # Fz (Centrífuga en Z - desfase 90°)
             - (-1j * F0) * ly_exc,  # Mx = Fy*lz - Fz*ly  -> (0 - Fz*ly)
-            F0 * lz_exc - (-1j * F0) * lx_exc, # My = Fz*lx - Fx*lz (Momento Torsional en el eje Y)
+            F0 * lz - (-1j * F0) * lx, # My = Fz*lx - Fx*lz (Momento Torsional en el eje Y)
             F0 * ly_exc             # Mz = Fx*ly - Fy*lx  -> (Fx*ly - 0)
             ])
             if usar_giroscopico:
@@ -254,7 +254,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_prod
                 0,                      # Fz (Nula en desbalanceo radial)
                 (1j * F0) * lz_exc,     # Mx = Fy*lz - Fz*ly
                 -F0 * lz_exc,           # My = Fz*lx - Fx*lz
-                F0 * ly_exc - (1j * F0) * lx_exc  # Mz = Fx*ly - Fy*lx (Momento Torsional)
+                F0 * ly - (1j * F0) * lx  # Mz = Fx*ly - Fy*lx (Momento Torsional)
             ])
 
             # --- MATRIZ GIROSCÓPICA G ---

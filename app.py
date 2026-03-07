@@ -1,5 +1,6 @@
 import motor_fisico
-
+import streamlit as st
+import numpy as np
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)

@@ -64,8 +64,8 @@ class SimuladorCentrifuga:
             
             # Mapeo de dimensiones: dx=X, dy=Y(Vertical), dz=Z
             dx, dy, dz = l_a, esp, l_b
-            dims = {'x': dx, 'y': dy, 'z': dz}
-            pos_placa = [dist_x, 0.0, dist_z]
+            self.dims = {'x': dx, 'y': dy, 'z': dz}
+            self.pos_placa = [dist_x, 0.0, dist_z]
             
             # Masa: Masa total - Masa del agujero
             m_total = (dx * dy * dz) * rho

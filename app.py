@@ -29,7 +29,7 @@ def inicializar_estado_del_simulador():
             "distancia_eje": 0.0,
             "sensor_pos": [-0.4, 0.2, 0.0],
             "diametro_cesto": 1250,  # Valor por defecto (mm),
-            "tipo_de_maquina": "vertical"  # Valor por defecto (mm)
+            "tipo_de_maquina": "horizontal"  # Valor por defecto (mm)
         }
 
     if 'dampers_prop_data' not in st.session_state:
@@ -313,6 +313,8 @@ with tab_dampers:
 # Usamos las llaves del session_state para garantizar que, 
 # aunque el usuario no abra una pestaña, el simulador use el último dato guardado.
 
+
+
 config_base = {
     "excitacion": {
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"], 
@@ -325,7 +327,6 @@ config_base = {
         "pos_sensor": st.session_state.configuracion_sistema["sensor_pos"]
     },
     "tipos_dampers": pd.DataFrame(st.session_state.dampers_prop_data).set_index("Tipo").to_dict('index'),
-    "tipo_de_maquina": st.session_state.configuracion_sistema["tipo_de_maquina"]
 }
 
 #Inyectamos la diferencia específica

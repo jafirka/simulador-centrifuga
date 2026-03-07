@@ -14,8 +14,6 @@ import base64
 import io
 from fpdf import FPDF
 
-st.set_page_config(layout="wide")
-st.sidebar.header("Parámetros de cálculos")
 
 # ==========================================
 # 1️⃣ TUS CLASES

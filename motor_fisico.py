@@ -64,13 +64,13 @@ class SimuladorCentrifuga:
             
             # Mapeo de dimensiones: dx=X, dy=Y(Vertical), dz=Z
             dx, dy, dz = l_a, esp, l_b
-            self.dims = {'x': dx, 'y': dy, 'z': dz}
-            self.pos_placa = [dist_x, 0.0, dist_z]
+            dims = {'x': dx, 'y': dy, 'z': dz}
+            pos_placa = [dist_x, 0.0, dist_z]
             
             # Masa: Masa total - Masa del agujero
             m_total = (dx * dy * dz) * rho
             m_agujero = (math.pi * r**2 * esp) * rho
-            self.m_placa = m_total - m_agujero
+            m_placa = m_total - m_agujero
 
             # Cálculo de Inercias Locales (Respecto al CG de la placa)
             # Eje Y: Polar
@@ -80,12 +80,7 @@ class SimuladorCentrifuga:
             # Eje Z: Diametral
             Iz = (1/12) * m_total * (l_a**2 + esp**2) - (1/4) * m_agujero * (r**2 + (esp**2)/3)
 
-            # Representamos como matriz 3x3 para evitar errores en armar_matrices
-            self.I_placa = [
-                [Ix, 0, 0],
-                [0, Iy, 0],
-                [0, 0, Iz]
-            ]
+
             self.componentes["placa"] = {
                 "m": m_placa, 
                 "pos": [p.get('Dist_x', 0.0), 0.0, p.get('Dist_z', 0.0)], 

@@ -39,6 +39,8 @@ def inicializar_estado_del_simulador():
             {"Nombre": "D4 (Posterior)", "X": 1.4, "Y":  -0.4, "Z": -1.4, "Tipo": "ZPVL_YYY"},
         ]
 
+# Llamamos a nuestra nueva función
+inicializar_estado_del_simulador()
 # --- 1. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
 
@@ -63,8 +65,7 @@ st.sidebar.header("Parámetros de cálculos")
 m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
 rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
-# Llamamos a nuestra nueva función
-inicializar_estado_del_simulador()
+
 
 if tipo_de_maquina == "vertical":
     st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")

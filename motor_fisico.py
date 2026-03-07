@@ -436,9 +436,6 @@ def dibujar_modelo_2d_vertical(modelo, titulo="Disposición de Planta (Plano XZ)
     
     return fig
 
-
-
-
 def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centrífuga Horizontal"):
     # Creamos la figura con dos vistas: Perfil (X-Y) y Planta (X-Z)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
@@ -447,7 +444,7 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     _, _, _, cg_global = modelo.armar_matrices()
     ex = modelo.excitacion
     radio_cesto = ex.get('e_unbalance', 0.625)
-    distancia_axial_total = ex.get('distancia_eje', 1.5) # Longitud del rotor
+    distancia_axial_total = ex.get('distancia_eje', 1.5) 
     
     # --- VISTA FRONTAL / PERFIL (PLANO X-Y) ---
     # Representación del cesto sombreado (Círculo)
@@ -456,11 +453,10 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     ax1.add_patch(cesto_frontal)
     ax1.add_patch(cesto_borde)
     
-    # Dibujar Dampers en Frontal
+    # Dibujar Dampers en Frontal (SIN NOMBRES)
     for i, d in enumerate(modelo.dampers):
         ax1.scatter(d.pos[0], d.pos[1], marker='s', s=100, color='black', zorder=5,
                     label="Aisladores (Dampers)" if i==0 else "")
-        ax1.text(d.pos[0], d.pos[1] - 0.15, d.nombre, fontsize=8, ha='center', fontweight='bold')
 
     # Centro de Gravedad Global en Frontal
     ax1.scatter(cg_global[0], cg_global[1], marker='*', s=300, color='gold', 
@@ -478,12 +474,10 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
         puntos_xz = np.array([[d.pos[0], d.pos[2]] for d in modelo.dampers])
         try:
             hull = ConvexHull(puntos_xz)
-            # Ordenamos los puntos perimetralmente para que el sombreado no se cruce
             puntos_ordenados = puntos_xz[hull.vertices]
             poly_xz = plt.Polygon(puntos_ordenados, closed=True, color='gray', alpha=0.2, label='Área de Apoyo')
             ax2.add_patch(poly_xz)
         except:
-            # Fallback simple si los puntos son colineales o hay error
             pass
 
     # Representación del cesto en planta (Rectángulo)
@@ -494,19 +488,19 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     # Eje de rotación (Línea central)
     ax2.plot([0, 0], [0, distancia_axial_total], color='blue', ls='-.', lw=1.5, alpha=0.6)
 
-    # Dibujar Dampers en Planta
+    # Dibujar Dampers en Planta (CON NOMBRES)
     for d in modelo.dampers:
         ax2.scatter(d.pos[0], d.pos[2], marker='s', s=100, color='black', zorder=5)
+        # Nombre del damper solo en esta vista
+        ax2.text(d.pos[0], d.pos[2] + 0.1, d.nombre, fontsize=8, ha='center', fontweight='bold')
 
-    # 3. Representación del Desbalanceo (Masa) en Planta
+    # 3. Representación del Desbalanceo (Masa) únicamente en Planta
     if ex['m_unbalance'] > 0:
-        pos_z_unb = ex['distancia_eje'] # Posición axial
-        radio_unb = ex['e_unbalance']    # Posición radial (en X)
+        pos_z_unb = ex['distancia_eje'] 
+        radio_unb = ex['e_unbalance']    
         
-        # Punto rojo de la masa
         ax2.scatter(radio_unb, pos_z_unb, color='red', s=150, edgecolor='black', 
                     zorder=15, label=f"Desbalance ({ex['m_unbalance']}kg)")
-        # Línea de radio
         ax2.plot([0, radio_unb], [pos_z_unb, pos_z_unb], color='red', ls='--', lw=2)
 
     # CG Global en Planta
@@ -520,11 +514,12 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
 
     # Configuración de leyenda y títulos
     fig.suptitle(titulo, fontsize=16, fontweight='bold', y=0.98)
+    
+    # Unificar leyendas
     handles, labels = ax1.get_legend_handles_labels()
     handles2, labels2 = ax2.get_legend_handles_labels()
-    
-    # Combinar leyendas únicas
     by_label = dict(zip(labels + labels2, handles + handles2))
+    
     fig.legend(by_label.values(), by_label.keys(), loc='lower center', 
                ncol=3, fontsize='medium', frameon=True, bbox_to_anchor=(0.5, -0.05))
     

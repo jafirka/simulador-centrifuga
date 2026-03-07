@@ -857,7 +857,8 @@ datos_a_exportar = {
     "configuracion_sistema": {
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"],
         "diametro_cesto": st.session_state.configuracion_sistema["diametro_cesto"], 
-        "sensor_pos": st.session_state.configuracion_sistema["sensor_pos"]
+        "sensor_pos": st.session_state.configuracion_sistema["sensor_pos"],
+        "tipo_de_maquina": st.session_state.configuracion_sistema["tipo_de_maquina"]
     },
     # Los diccionarios de componentes (Bancada, Cesto)
     "componentes_data": st.session_state.componentes_data,

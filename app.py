@@ -122,7 +122,6 @@ with tab_config:
 )
     # 3. Calculamos la excentricidad (Radio en metros)
     e_unbalance = (diametro_sel / 1000) / 2
-
        
     # --- NUEVA SECCIÓN: POSICIÓN DEL SENSOR ---
     st.text("Posición del Sensor de velocidad/aceleracion(m)")

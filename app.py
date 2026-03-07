@@ -456,13 +456,13 @@ for i, col in enumerate(columnas):
         # Generamos la figura
         # Nota: He quitado fig.update_layout porque eso es para Plotly. 
         # Si usas Matplotlib, el tamaño se controla en plt.subplots(figsize=...)
-        fig = graficar_fuerza_tiempo(modelo_base, rpm_obj, i)
+        fig = graficar_fuerza_tiempo(modelo_base, rpm_obj, i,usar_giroscopio=usar_giroscopio,i_producto=i_producto)
         
         # Mostramos en Streamlit
         st.pyplot(fig)
 
 st.subheader("📋 Resumen de Cargas por Apoyo")
-df_cargas = calcular_tabla_fuerzas(modelo_base, rpm_obj)
+df_cargas = calcular_tabla_fuerzas(modelo_base, rpm_obj,usar_giroscopio=usar_giroscopio,i_producto=i_producto)
 if not df_cargas.empty:
     st.dataframe(
         df_cargas,

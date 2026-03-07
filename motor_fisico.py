@@ -202,7 +202,6 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopio=False, i_produ
 
     M, K, C, cg_global = modelo.armar_matrices()
     T_sensor = modelo.obtener_matriz_sensor(cg_global)
-    st.header(f"Valor de Inercia recibido: {i_producto}")
     # --- Preparación damper específico ---
     damper_d = modelo.dampers[d_idx]
     T_damper = damper_d.get_matriz_T(cg_global)
@@ -294,7 +293,7 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopio=False, i_produ
     
     return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper
 
-def calcular_tabla_fuerzas(modelo, rpm_obj):
+def calcular_tabla_fuerzas(modelo, rpm_obj,usar_giroscopio=False, i_producto=0.0):
 
     M, K, C, cg_global = modelo.armar_matrices()
     m_total = sum(c["m"] for c in modelo.componentes.values())
@@ -322,7 +321,7 @@ def calcular_tabla_fuerzas(modelo, rpm_obj):
     for i, d in enumerate(modelo.dampers):
         # Ejecutamos el barrido solo para la RPM objetivo y para este damper específico
         # Pasamos [rpm_obj] como lista para que el bucle for del barrido funcione
-        _, D_desp, D_fuerza, *_ = ejecutar_barrido_rpm(modelo, [rpm_obj], d_idx=i)
+        _, D_desp, D_fuerza, *_ = ejecutar_barrido_rpm(modelo, [rpm_obj], d_idx=i,i_producto=i_producto,usar_giroscopio=usar_giroscopio)
         
         # Como solo enviamos una RPM, los resultados están en el índice [0] de las listas
         f_din_x = D_fuerza["x"][0]
@@ -343,8 +342,8 @@ def calcular_tabla_fuerzas(modelo, rpm_obj):
 
     return pd.DataFrame(resumen)
 
-def graficar_fuerza_tiempo(modelo, rpm, d_idx):
-    res = ejecutar_barrido_rpm(modelo, [rpm], d_idx)
+def graficar_fuerza_tiempo(modelo, rpm, d_idx,usar_giroscopio=False, i_producto=0.0):
+    res = ejecutar_barrido_rpm(modelo, [rpm], d_idx,usar_giroscopio=usar_giroscopio, i_producto=i_producto):
     
     # IMPORTANTE: Si el barrido devuelve una lista de vectores complejos, 
     # tomamos el primero. Si devuelve solo uno, lo usamos directo.

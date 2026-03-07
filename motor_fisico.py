@@ -321,7 +321,7 @@ def calcular_tabla_fuerzas(modelo, rpm_obj,usar_giroscopio=False, i_producto=0.0
     for i, d in enumerate(modelo.dampers):
         # Ejecutamos el barrido solo para la RPM objetivo y para este damper específico
         # Pasamos [rpm_obj] como lista para que el bucle for del barrido funcione
-        _, D_desp, D_fuerza, *_ = ejecutar_barrido_rpm(modelo, [rpm_obj], d_idx=i,i_producto=i_producto,usar_giroscopio=usar_giroscopio)
+        _, D_desp, D_fuerza, *_ = ejecutar_barrido_rpm(modelo, [rpm_obj], d_idx=i,usar_giroscopio=usar_giroscopio,i_producto=i_producto)
         
         # Como solo enviamos una RPM, los resultados están en el índice [0] de las listas
         f_din_x = D_fuerza["x"][0]

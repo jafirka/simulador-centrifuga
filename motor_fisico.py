@@ -198,11 +198,11 @@ class SimuladorCentrifuga:
 
         return f_rpm, evecs
 
-def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_producto=0.0):
+def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=usar_giroscopico, i_producto=i_producto):
 
     M, K, C, cg_global = modelo.armar_matrices()
     T_sensor = modelo.obtener_matriz_sensor(cg_global)
-
+    st.header(f"Valor de Inercia recibido: {i_producto}")
     # --- Preparación damper específico ---
     damper_d = modelo.dampers[d_idx]
     T_damper = damper_d.get_matriz_T(cg_global)

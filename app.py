@@ -762,7 +762,10 @@ if st.button("Preparar Informe para PDF"):
 # --- AL FINAL DEL ARCHIVO ---
 if st.sidebar.button("Generar Informe PDF Completo"):
     try:
-        fig_planta = dibujar_modelo_2d(modelo_base)
+        if tipo_de_maquina == "vertical":
+            fig_planta = dibujar_modelo_2d_vertical(modelo_base)
+        if tipo_de_maquina == "horizontal":
+            fig_planta = dibujar_modelo_2d_horizontal(modelo_base)
         fig_vibraciones = graficar_fuerza_tiempo(modelo_base, rpm_obj, d_idx)
         df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
         

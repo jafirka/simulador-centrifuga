@@ -431,7 +431,7 @@ if tipo_de_maquina == "horizontal":
     st.subheader("🌐 Visualización 2D del Modelo")
     # Asegúrate de que el modelo_base ya esté inicializado antes de llamar a dibujar_modelo_3d
     fig_2d = dibujar_modelo_2d_horizontal(modelo_base)
-    st.plotly_chart(fig_2d, use_container_width=True)
+    st.pyplot(fig_2d)  
 
 
 st.subheader("⏱️ Respuesta Temporal de Fuerzas")

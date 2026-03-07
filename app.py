@@ -1,8 +1,15 @@
 import motor_fisico
+import streamlit as st
+import numpy as np
+import pandas as pd
+import json
+import copy
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
 # ==========================================
+# --- 1. INTERFAZ DE STREAMLIT ---
+st.set_page_config(layout="wide")
 
 def inicializar_estado_del_simulador():
     # --- INICIALIZADOR DE DATOS (Fuente de Verdad Única) ---
@@ -41,8 +48,7 @@ def inicializar_estado_del_simulador():
 
 # Llamamos a nuestra nueva función
 inicializar_estado_del_simulador()
-# --- 1. INTERFAZ DE STREAMLIT ---
-st.set_page_config(layout="wide")
+
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
 

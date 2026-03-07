@@ -1,11 +1,4 @@
-import motor_fisico
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import json
-import copy
-import re
+from motor_fisico import *
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)

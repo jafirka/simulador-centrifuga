@@ -145,6 +145,8 @@ with tab_config:
     st.session_state.configuracion_sistema["distancia_eje"] = distancia_eje
     st.session_state.configuracion_sistema["sensor_pos"] = [sensor_x, sensor_y, sensor_z] 
     st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
+    st.session_state.configuracion_sistema["tipo_de_maquina"] = tipo_de_maquina
+
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:

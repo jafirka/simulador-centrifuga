@@ -1,5 +1,6 @@
 from motor_fisico import *
 
+
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
 # ==========================================
@@ -110,12 +111,15 @@ with tab_config:
         index=opciones_diametro.index(st.session_state.configuracion_sistema.get("diametro_cesto", 1250))
     )
 
+    # 1. Recuperamos el valor (o definimos el default si no existe)
+    maquina_init = st.session_state.configuracion_sistema.get("tipo_de_maquina", "vertical")
+    # 2. El selectbox en una sola línea
     tipo_de_maquina = st.selectbox(
     "Tipo de máquina (eje de giro):", 
     ["vertical", "horizontal"],
-    format_func=lambda x: x.capitalize() # Muestra "Vertical" / "Horizontal"
-    )
-
+    index=0 if maquina_init == "vertical" else 1,
+    format_func=str.capitalize
+)
     # 3. Calculamos la excentricidad (Radio en metros)
     e_unbalance = (diametro_sel / 1000) / 2
 

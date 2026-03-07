@@ -526,51 +526,111 @@ def dibujar_modelo_2d_horizontal(modelo, titulo="Disposición Física - Centríf
     return fig
 
 def generar_pdf(config_base, f_res, tabla_fuerzas, fig_planta, fig_vibraciones):
-    # Con fpdf2 no necesitas especificar 'Arial', usa 'helvetica' que es estándar
+
+    # 1. Configuración inicial
     pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_font("helvetica", "B", 16)
     
-    # Título
-    pdf.cell(0, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", new_x="LMARGIN", new_y="NEXT", align="C")
+    # --- ENCABEZADO CORPORATIVO ---
+    pdf.set_font("helvetica", "B", 16)
+    pdf.set_text_color(40, 40, 40)
+    pdf.cell(0, 10, "INFORME TÉCNICO DE VIBRACIONES - RIERA NADEU", ln=True, align="C")
+    
+    pdf.set_font("helvetica", "I", 10)
+    tipo = config_base.get("tipo_de_maquina", "N/A").upper()
+    pdf.cell(0, 8, f"Configuración: Centrífuga de Eje {tipo}", ln=True, align="C")
     pdf.ln(10)
     
-    # --- GRÁFICO 1: DISPOSICIÓN ---
+    # --- SECCIÓN 1: DISPOSICIÓN 2D ---
     pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "1. Disposicion Fisica del Sistema", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(0, 51, 102) # Azul oscuro técnico
+    pdf.cell(0, 10, "1. Disposicion Fisica y Distribucion de Masas", ln=True)
     
-    img_buf = io.BytesIO()
-    fig_planta.savefig(img_buf, format='png', bbox_inches='tight')
-    img_buf.seek(0)
-    pdf.image(img_buf, x=10, w=100) # fpdf2 maneja el buffer automáticamente
+    pdf.set_font("helvetica", "", 10)
+    pdf.set_text_color(0, 0, 0)
+    texto_dispo = (
+        "El siguiente diagrama muestra la disposición de los aisladores (dampers) y la ubicación "
+        "del Centro de Gravedad (CG) total del sistema. El sombreado gris representa el polígono de "
+        "apoyo efectivo para la estabilidad de la máquina."
+    )
+    pdf.multi_cell(0, 6, texto_dispo)
     pdf.ln(5)
 
-    # --- GRÁFICO 2: VIBRACIONES ---
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "2. Analisis de Vibraciones (Fuerza vs Tiempo)", new_x="LMARGIN", new_y="NEXT")
+    # Renderizado de fig_planta
+    img_buf = io.BytesIO()
+    fig_planta.savefig(img_buf, format='png', bbox_inches='tight', dpi=150)
+    img_buf.seek(0)
     
-    img_buf_2 = io.BytesIO()
-    fig_vibraciones.savefig(img_buf_2, format='png', bbox_inches='tight')
-    img_buf_2.seek(0)
-    pdf.image(img_buf_2, x=10, w=180)
+    # Ajustar tamaño según orientación
+    ancho_img = 140 if tipo == "VERTICAL" else 185
+    pos_x = (210 - ancho_img) / 2 # Centrado
+    pdf.image(img_buf, x=pos_x, w=ancho_img)
+    pdf.ln(10)
 
-    # --- TABLA DE FUERZAS ---
+    # --- SECCIÓN 2: ANÁLISIS DINÁMICO ---
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_text_color(0, 51, 102)
+    pdf.cell(0, 10, "2. Analisis de Fuerzas en el Tiempo", ln=True)
+    
+    pdf.set_font("helvetica", "", 10)
+    pdf.set_text_color(0, 0, 0)
+    texto_vibras = (
+        "Se presenta el comportamiento de las fuerzas dinámicas transmitidas a los apoyos durante "
+        "dos ciclos de rotación completa a la velocidad nominal. Las curvas representan las fuerzas "
+        "en los ejes X (Lateral), Y (Vertical) y Z (Axial)."
+    )
+    pdf.multi_cell(0, 6, texto_vibras)
+    pdf.ln(5)
+
+    # Renderizado de fig_vibraciones
+    img_buf_2 = io.BytesIO()
+    fig_vibraciones.savefig(img_buf_2, format='png', bbox_inches='tight', dpi=150)
+    img_buf_2.seek(0)
+    pdf.image(img_buf_2, x=15, w=180)
+
+    # --- SECCIÓN 3: REACCIONES EN APOYOS (TABLA) ---
     pdf.add_page()
     pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "3. Reacciones en Apoyos", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 8)
+    pdf.set_text_color(0, 51, 102)
+    pdf.cell(0, 10, "3. Tabla de Reacciones y Margen de Estabilidad", ln=True)
     
-    # Encabezados
-    pdf.cell(45, 7, "Damper", border=1)
-    pdf.cell(45, 7, "Carga Est. [N]", border=1)
-    pdf.cell(45, 7, "Carga Tot. Max [N]", border=1)
-    pdf.ln()
-    
-    for _, row in tabla_fuerzas.iterrows():
-        pdf.cell(45, 7, str(row["Damper"]), border=1)
-        pdf.cell(45, 7, str(row["Carga Estática [N]"]), border=1)
-        pdf.cell(45, 7, str(row["Carga TOTAL MÁX [N]"]), border=1)
-        pdf.ln()
+    pdf.set_font("helvetica", "", 10)
+    pdf.set_text_color(0, 0, 0)
+    texto_tabla = (
+        "A continuación se detallan las cargas estáticas y dinámicas máximas. El 'Margen de Estabilidad' "
+        "indica la fuerza neta residual que mantiene el apoyo en contacto con el suelo. Valores negativos "
+        "indican riesgo de despegue o rebote."
+    )
+    pdf.multi_cell(0, 6, texto_tabla)
+    pdf.ln(5)
 
-    # SOLUCIÓN AL ERROR: Simplemente output() sin encode
+    # Encabezados de Tabla
+    pdf.set_fill_color(220, 220, 220)
+    pdf.set_font("helvetica", "B", 9)
+    col_w = [40, 35, 40, 35, 35]
+    pdf.cell(col_w[0], 8, "Aislador", 1, 0, "C", True)
+    pdf.cell(col_w[1], 8, "Estacionaria [N]", 1, 0, "C", True)
+    pdf.cell(col_w[2], 8, "Din. Vertical [N]", 1, 0, "C", True)
+    pdf.cell(col_w[3], 8, "Carga Max [N]", 1, 0, "C", True)
+    pdf.cell(col_w[4], 8, "Margen [N]", 1, 1, "C", True)
+
+    # Filas de la Tabla
+    pdf.set_font("helvetica", "", 9)
+    for _, row in tabla_fuerzas.iterrows():
+        pdf.cell(col_w[0], 8, str(row["Damper"]), 1)
+        pdf.cell(col_w[1], 8, f"{row['Carga Estática [N]']:.1f}", 1, 0, "R")
+        pdf.cell(col_w[2], 8, f"{row['Dinámica Y [N]']:.1f}", 1, 0, "R")
+        pdf.cell(col_w[3], 8, f"{row['Carga TOTAL MÁX [N]']:.1f}", 1, 0, "R")
+        
+        # Alerta visual para márgenes negativos
+        margen = row["Margen Estabilidad [N]"]
+        if margen < 0:
+            pdf.set_text_color(200, 0, 0)
+            pdf.set_font("helvetica", "B", 9)
+        
+        pdf.cell(col_w[4], 8, f"{margen:.1f}", 1, 1, "R")
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("helvetica", "", 9)
+
     return pdf.output()

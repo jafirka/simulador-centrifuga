@@ -88,8 +88,7 @@ st.markdown("Modifica los valores en la barra lateral para ver el impacto en las
 # --- SECCIÓN: PESTAÑAS ---
 st.header("🧱 Configuración del Sistema")
 
-# Contenedor para los datos procesados en los tabs
-comp_editados = {} 
+
 tab_config, tab_comp, tab_dampers, = st.tabs([ "⚙️ Configuración del Sistema", "📦 Componentes Masas/Inercias", "🛡️ Configuración de Dampers"])
 
 # 1️⃣ CONFIGURACION DE SISTEMA
@@ -743,53 +742,53 @@ observaciones = st.text_area("Escribe aquí tus conclusiones adicionales para el
 
 st.info("💡 **Consejo para el reporte:** Las anotaciones de arriba aparecerán en tu PDF final.")
 
-st.divider()
-st.subheader("🖨️ Generar Reporte Técnico")
-
-if st.button("Preparar Informe para PDF"):
-    st.balloons()
-    st.info("### Instrucciones para un PDF Profesional:\n"
-            "1. Presiona **Ctrl + P** (Windows) o **Cmd + P** (Mac).\n"
-            "2. Selecciona **'Guardar como PDF'**.\n"
-            "3. En 'Más ajustes', activa **'Gráficos de fondo'**.\n"
-            "4. Cambia el diseño a **'Vertical'**.")
-    
-    # Esto fuerza a Streamlit a mostrar todo de forma estática y clara
-    st.markdown("""
-        <style>
-        @media print {
-            .stButton, .stDownloadButton { display: none; } /* Oculta botones al imprimir */
-            .main { background-color: white !important; }
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-# --- AL FINAL DEL ARCHIVO ---
-if st.sidebar.button("Generar Informe PDF Completo"):
+# --- AL FINAL DE app.py ---
+if st.sidebar.button("🚀 Preparar Informe PDF Completo"):
     try:
+        # 1. Gráfico de Disposición (Vertical u Horizontal)
         if tipo_de_maquina == "vertical":
-            fig_planta = dibujar_modelo_2d_vertical(modelo_base)
-        if tipo_de_maquina == "horizontal":
-            fig_planta = dibujar_modelo_2d_horizontal(modelo_base)
-        fig_vibraciones = graficar_fuerza_tiempo(modelo_base, rpm_obj, d_idx)
-        df_fuerzas_pdf = calcular_tabla_fuerzas(modelo_base, rpm_obj)
+            fig_disposicion = dibujar_modelo_2d_vertical(modelo_base, "Plano de Planta y CG - Vertical")
+        else:
+            fig_disposicion = dibujar_modelo_2d_horizontal(modelo_base, "Vistas Frontal y Planta - Horizontal")
         
-        config_base['excitacion']['rpm_obj'] = rpm_obj
+        # 2. Generar gráficos para TODOS los dampers (Análisis multicanal)
+        figs_dampers = []
+        for i in range(len(modelo_base.dampers)):
+            f_temp = graficar_fuerza_tiempo(
+                modelo_base, rpm_obj, i, 
+                usar_giroscopio=usar_giroscopio, 
+                i_producto=i_producto
+            )
+            figs_dampers.append(f_temp)
         
-        # Generamos el PDF
-        resultado_pdf = generar_pdf(config_base, f_res_rpm, df_fuerzas_pdf, fig_planta, fig_vibraciones)
+        # 3. Tabla de reacciones
+        df_fuerzas_pdf = calcular_tabla_fuerzas(
+            modelo_base, rpm_obj, 
+            usar_giroscopio=usar_giroscopio, 
+            i_producto=i_producto
+        )
         
-        # FORZAMOS LA CONVERSIÓN A BYTES AQUÍ
+        # 4. Llamada a la función de generación mejorada
+        resultado_pdf = generar_pdf(
+            config_base, 
+            f_res_rpm, 
+            df_fuerzas_pdf, 
+            fig_disposicion, 
+            figs_dampers, # Pasamos la lista de gráficos
+            rpm_obj
+        )
+        
         pdf_final = bytes(resultado_pdf)
         
+        st.sidebar.success("✅ Informe generado con éxito")
         st.sidebar.download_button(
-            label="⬇️ Descargar PDF",
+            label="⬇️ Descargar Reporte Técnico",
             data=pdf_final,
-            file_name=f"Reporte_Tecnico_Vibraciones.pdf",
+            file_name=f"Reporte_Vibraciones_{tipo_de_maquina}.pdf",
             mime="application/pdf"
         )
     except Exception as e:
-        st.sidebar.error(f"Error: {e}")
+        st.sidebar.error(f"Error al generar PDF: {e}")
 
 
 

@@ -1,501 +1,4 @@
-import streamlit as st
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy import linalg
-import math
-import copy
-import json
-import pandas as pd
-import re
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import requests
-import base64
-import io
-from fpdf import FPDF # <--- AGREGAR ESTA LÍNEA
-
-
-
-# ==========================================
-# 1️⃣ TUS CLASES
-# ==========================================
-
-class Damper:
-    def __init__(self, nombre, pos, kx, ky, kz, cx, cy, cz):
-        self.nombre = nombre
-        self.pos = np.array(pos, dtype=float)
-        self.kx, self.ky, self.kz = kx, ky, kz
-        self.cx, self.cy, self.cz = cx, cy, cz
-
-    def get_matriz_T(self, cg):
-        d = self.pos - np.array(cg)
-        lx, ly, lz = d
-        return np.array([
-
-            [1, 0, 0,    0,   lz,  -ly], # ux: Traslación X + lz*Ry - ly*Rz
-            [0, 1, 0,  -lz,    0,   lx], # uy: Traslación Y - lz*Rx + lx*Rz
-            [0, 0, 1,   ly,  -lx,    0]  # uz: Traslación Z + ly*Rx - lx*Ry
-        ])
-
-    def get_matriz_K(self): return np.diag([self.kx, self.ky, self.kz])
-    def get_matriz_C(self): return np.diag([self.cx, self.cy, self.cz])
-
-class SimuladorCentrifuga:
-    def __init__(self, config):
-        self.pos_sensor = np.array(config["sensor"]["pos_sensor"])
-        # --- Parámetros de la Placa ---
-        p = config['placa']
-        l_a, l_b, esp = p['lado_a'], p['lado_b'], p['espesor']
-        dist_x = p.get('Dist_x', 0.0)
-        dist_z = p.get('Dist_z', 0.0)
-
-        r = p['radio_agujero']
-        rho = 7850 # kg/m^3 (Acero)
-		
-		# Mapeo de dimensiones: dx=X, dy=Y(Vertical), dz=Z
-        dx, dy, dz = l_a, esp, l_b
-        self.dims = {'x': dx, 'y': dy, 'z': dz}
-        self.pos_placa = [dist_x, 0.0, dist_z]
-		
-        # Masa: Masa total - Masa del agujero
-        m_total = (dx * dy * dz) * rho
-        m_agujero = (math.pi * r**2 * esp) * rho
-        self.m_placa = m_total - m_agujero
-
-		# Cálculo de Inercias Locales (Respecto al CG de la placa)
-        # Eje Y: Polar
-        Iy = (1/12) * m_total * (l_a**2 + l_b**2) - (1/2) * m_agujero * r**2
-        # Eje X: Diametral
-        Ix = (1/12) * m_total * (l_b**2 + esp**2) - (1/4) * m_agujero * (r**2 + (esp**2)/3)
-        # Eje Z: Diametral
-        Iz = (1/12) * m_total * (l_a**2 + esp**2) - (1/4) * m_agujero * (r**2 + (esp**2)/3)
-
-        # Representamos como matriz 3x3 para evitar errores en armar_matrices
-        self.I_placa = [
-            [Ix, 0, 0],
-            [0, Iy, 0],
-            [0, 0, Iz]
-        ]
-        
-        # --- Componentes ---
-        self.componentes = {
-            "placa": {"m": self.m_placa, "pos": self.pos_placa, "I": self.I_placa},
-            "cesto": config['componentes']['cesto'],
-            "bancada": config['componentes']['bancada'],
-            "motor": config['componentes']['motor']
-        }
-
-
-        # --- Excitación ---
-        self.excitacion = config['excitacion']
-
-        # --- Dampers ---
-        self.dampers = []
-        for d_conf in config['dampers']:
-            nombre_instancia = d_conf.get('nombre', 'unnamed')
-            
-            # Buscamos las propiedades (kx, ky, etc.)
-            # Prioridad 1: Que ya vengan en el diccionario del damper
-            # Prioridad 2: Buscarlas en tipos_dampers usando el campo 'tipo'
-            if 'kx' in d_conf:
-                self.dampers.append(Damper(nombre_instancia, d_conf['pos'], 
-                                           d_conf['kx'], d_conf['ky'], d_conf['kz'], 
-                                           d_conf['cx'], d_conf['cy'], d_conf['cz']))
-            else:
-                tipo_nombre = d_conf['tipo']
-                tipo_vals = config['tipos_dampers'][tipo_nombre]
-                self.dampers.append(Damper(tipo_nombre, d_conf['pos'], **tipo_vals))
-
-    def obtener_matriz_sensor(self, cg_global):
-        r_p = self.pos_sensor - cg_global
-        return np.array([
-            [1, 0, 0, 0,  r_p[2], -r_p[1]],
-            [0, 1, 0, -r_p[2], 0,  r_p[0]],
-            [0, 0, 1,  r_p[1], -r_p[0], 0]
-        ])
-
-    def armar_matrices(self):
-
-        
-        m_total = sum(c["m"] for c in self.componentes.values())
-        cg_global = sum(c["m"] * np.array(c["pos"]) for c in self.componentes.values()) / m_total
-
-        M, I_global = np.zeros((6, 6)), np.zeros((3, 3))
-        
-        for nombre, c in self.componentes.items():
-            m_c = c["m"]
-            p_c = np.array(c["pos"])
-
-            I_local = np.array(c["I"], dtype=float)
-
-            # Vector desde el CG global al CG del componente
-            d = p_c - cg_global
-        
-            # Teorema de Steiner (Ejes Paralelos) en forma matricial
-            # I_global = sum( I_local + m * [ (d·d)diag(1) - (d ⊗ d) ] )
-            term_steiner = m_c * (np.dot(d, d) * np.eye(3) - np.outer(d, d))
-
-            # Verificación de simetría real antes de sumar
-            matriz_c = I_local + term_steiner
-            I_global += (I_local + term_steiner)
-
-		# Verificación final (Solo si la asimetría es grosera)
-        if not np.allclose(I_global, I_global.T, atol=1e-6):
-            st.error(f"Error crítico: I_global sigue siendo asimétrica.")
-            st.matrix(I_global) # st.matrix es genial para ver tensores
-			
-
-        M[0:3, 0:3], M[3:6, 3:6] = np.eye(3) * m_total, I_global
-
-        K, C = np.zeros((6, 6)), np.zeros((6, 6))
-        K += np.eye(6) * 1e-6
-        for damper in self.dampers:
-            T = damper.get_matriz_T(cg_global)
-            K += T.T @ damper.get_matriz_K() @ T
-            C += T.T @ damper.get_matriz_C() @ T
-
-        # 1. Masa total
-        if m_total <= 0:
-            st.error("❌ Error Crítico: La masa total es cero o negativa.")
-
-        # 2. Determinante de M (Corregido el error de sintaxis)
-        det_M = np.linalg.det(M)
-        if abs(det_M) < 1e-9:
-            st.warning(f"⚠️ Determinante de M muy bajo ({det_M:.2e}): El sistema es físicamente imposible o singular.")
-
-        # 3. Inercia Definida Positiva (Cholesky)
-        try:
-            np.linalg.cholesky(I_global) 
-        except np.linalg.LinAlgError:
-            st.error("🚨 ¡Inestabilidad Numérica en I_global!")
-            evs = np.linalg.eigvals(I_global)
-            st.write("Autovalores de I_global (deben ser todos > 0):", evs)
-
-        # 4. Condicionamiento
-        cond_M = np.linalg.cond(M)
-        if cond_M > 1e12:
-            st.warning(f"⚠️ Matriz de Masa mal condicionada (Cond: {cond_M:.2e}).")
-
-        return M, K, C, cg_global
-
-
-
-    def calcular_frecuencias_naturales(self):
-        # Todo este bloque debe tener la misma sangría inicial (4 espacios)
-        M, K, C, _ = self.armar_matrices()
-
-        # Cálculo del problema de autovalores generalizado
-        # K * v = λ * M * v
-        evals, evecs = linalg.eigh(K, M)
-        
-        # Limpieza de valores por precisión numérica
-        evals = np.maximum(evals, 0)
-        
-        # Frecuencias angulares (rad/s)
-        w_n = np.sqrt(evals)
-        
-        # Convertir a Hz y a RPM
-        f_hz = w_n / (2 * np.pi)
-        f_rpm = f_hz * 60
-
-        return f_rpm, evecs
-
-
-
-# ==========================================
-# 2️⃣ LÓGICA DE CÁLCULO
-# ==========================================
-
-def ejecutar_barrido_rpm(modelo, rpm_range, d_idx):
-
-    M, K, C, cg_global = modelo.armar_matrices()
-    T_sensor = modelo.obtener_matriz_sensor(cg_global)
-
-    # --- Preparación damper específico ---
-    damper_d = modelo.dampers[d_idx]
-    T_damper = damper_d.get_matriz_T(cg_global)
-    ks = [damper_d.kx, damper_d.ky, damper_d.kz]
-    cs = [damper_d.cx, damper_d.cy, damper_d.cz]
-
-    ex = modelo.excitacion
-    dist = ex['distancia_eje']
-
-    acel_cg = {"x": [], "y": [], "z": []}
-    D_fuerza = {"x": [], "y": [], "z": []}
-    vel_cg  = {"x": [], "y": [], "z": []}
-    D_desp  = {"x": [], "y": [], "z": []}
-    S_desp = {"x": [], "y": [], "z": []}
-    S_vel  = {"x": [], "y": [], "z": []}
-    S_acel = {"x": [], "y": [], "z": []}
-
-    for rpm in rpm_range:
-        w = rpm * 2 * np.pi / 60
-        F0 = ex['m_unbalance'] * ex['e_unbalance'] * w**2
-        
-        # 2. Inicialización del vector de excitación F (6 DOFs: Fx, Fy, Fz, Mx, My, Mz)
-        F = np.zeros(6, dtype=complex)
-
-
-        # =========================================================================
-        # NOTA TÉCNICA SOBRE LA EXCITACIÓN (EJE Z HORIZONTAL)
-        # =========================================================================
-        # Para garantizar la simetría dinámica en los apoyos, la fuerza debe 
-        # aplicarse respecto al EJE DE ROTACIÓN REAL (0, 0 en el plano X-Y).
-        #
-        # Si el CG_global está desplazado de este eje (excentricidad lateral), 
-        # la fuerza centrífuga genera momentos adicionales (Mx, My, Mz) 
-        # referidos al CG que el simulador debe resolver.
-        #
-        # Brazos de palanca desde el CG al punto de aplicación (en el eje):
-        # lx = 0 - cg_global[0] 
-        # ly = 0 - cg_global[1]
-        # lz = dist - cg_global[2]
-        #
-        # Esto corrige el "conflicto de fases" y restaura la simetría en los 
-        # resultados de los dampers cuando el sistema es geométricamente espejo.
-        # =========================================================================
-
-		# --- NUEVA LÓGICA PARA EJE DE ROTACIÓN VERTICAL (Y) ---
-        lx_exc = -cg_global[0]
-
-        ly_exc = ex['distancia_eje'] - cg_global[1] # 'dist' ahora es la altura sobre el CG
-
-        lz_exc = -cg_global[2]
-
-        F = np.array([
-          F0,                     # Fx (Centrífuga en X)
-          0,                      # Fy (Nula en el eje de rotación axial)
-          -1j * F0,               # Fz (Centrífuga en Z - desfase 90°)
-          - (-1j * F0) * ly_exc,  # Mx = Fy*lz - Fz*ly  -> (0 - Fz*ly)
-          F0 * lz_exc - (-1j * F0) * lx_exc, # My = Fz*lx - Fx*lz (Momento Torsional en el eje Y)
-          F0 * ly_exc             # Mz = Fx*ly - Fy*lx  -> (Fx*ly - 0)
-        ])
-
-
-        # Resolver el sistema: Z * X = F
-        Z = -w**2 * M + 1j*w * C + K
-        X = linalg.solve(Z, F)
-        # --- CG: aceleración y velocidad ---
-        for i, eje in enumerate(["x", "y", "z"]):
-          acel_cg[eje].append((w**2) * np.abs(X[i])/9.81)
-          vel_cg[eje].append(w * np.abs(X[i]) * 1000)
-
-        # --- Damper: desplazamiento y fuerza ---
-        X_damper = T_damper @ X
-        for i, eje in enumerate(["x", "y", "z"]):
-          D_desp[eje].append(np.abs(X_damper[i]) * 1000)
-          f_comp = (ks[i] + 1j * w * cs[i]) * X_damper[i]
-          D_fuerza[eje].append(np.abs(f_comp))
-
-        # --- Sensor: desplazamiento y fuerza ---
-        U_sensor = T_sensor @ X
-        for i, eje in enumerate(["x", "y", "z"]):
-          # desplazamiento [mm]
-          S_desp[eje].append(np.abs(U_sensor[i]) * 1000)
-          # velocidad [mm/s]
-          S_vel[eje].append(w * np.abs(U_sensor[i]) * 1000)
-          # aceleración [g]
-          S_acel[eje].append((w**2) * np.abs(U_sensor[i])/9.81)
-    
-    return rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper
-
-
-
-def calcular_tabla_fuerzas(modelo, rpm_obj):
-
-    M, K, C, cg_global = modelo.armar_matrices()
-    m_total = sum(c["m"] for c in modelo.componentes.values())
-    peso_total = m_total * 9.81
-    
-    n_d = len(modelo.dampers)
-    if n_d == 0: return pd.DataFrame()
-
-    # --- 1. REPARTO ESTÁTICO (Consistente con Vertical = Y) ---
-    A = np.zeros((3, n_d))
-    b = np.array([peso_total, 0, 0])
-    for i, d in enumerate(modelo.dampers):
-        rx = d.pos[0] - cg_global[0]
-        rz = d.pos[2] - cg_global[2]
-        A[0, i] = 1        # Suma de fuerzas en Y
-        A[1, i] = rz       # Momento en X (Brazo Z)
-        A[2, i] = -rx      # Momento en Z (Brazo X)
-
-    reacciones_estaticas = np.linalg.pinv(A) @ b
-
-    # --- 2. CÁLCULO DINÁMICO LLAMANDO AL BARRIDO ---
-    # Llamamos al barrido para cada damper para obtener sus fuerzas
-    resumen = []
-    
-    for i, d in enumerate(modelo.dampers):
-        # Ejecutamos el barrido solo para la RPM objetivo y para este damper específico
-        # Pasamos [rpm_obj] como lista para que el bucle for del barrido funcione
-        _, D_desp, D_fuerza, *_ = ejecutar_barrido_rpm(modelo, [rpm_obj], d_idx=i)
-        
-        # Como solo enviamos una RPM, los resultados están en el índice [0] de las listas
-        f_din_x = D_fuerza["x"][0]
-        f_din_y = D_fuerza["y"][0]
-        f_din_z = D_fuerza["z"][0]
-        
-        f_est_y = reacciones_estaticas[i]
-        
-        resumen.append({
-            "Damper": d.nombre,
-            "Carga Estática [N]": round(f_est_y, 1),
-            "Dinámica X [N]": round(f_din_x, 1),
-            "Dinámica Y [N]": round(f_din_y, 1),
-            "Dinámica Z [N]": round(f_din_z, 1),
-            "Carga TOTAL MÁX [N]": round(f_est_y + f_din_y, 1),
-            "Margen Estabilidad [N]": round(f_est_y - f_din_y, 1)
-        })
-
-    return pd.DataFrame(resumen)
-
-
-
-def graficar_fuerza_tiempo(modelo, rpm, d_idx):
-    res = ejecutar_barrido_rpm(modelo, [rpm], d_idx)
-    
-    # IMPORTANTE: Si el barrido devuelve una lista de vectores complejos, 
-    # tomamos el primero. Si devuelve solo uno, lo usamos directo.
-    X_data = res[-1]
-    X_target = X_data[0] if isinstance(X_data, list) else X_data
-
-    w = rpm * 2 * np.pi / 60
-    t = np.linspace(0, 2 * (2 * np.pi / w), 500)
-    
-    d = modelo.dampers[d_idx]
-    ks = [d.kx, d.ky, d.kz]
-    cs = [d.cx, d.cy, d.cz]
-    f_ejes = {"x": [], "y": [], "z": []}
-
-    for ti in t:
-        fasor = np.exp(1j * w * ti)
-        for i, eje in enumerate(["x", "y", "z"]):
-            # La clave es que X_target[i] sea el complejo A + Bi
-            term_dinamico = (ks[i] + 1j * w * cs[i]) * X_target[i] * fasor
-            f_ejes[eje].append(term_dinamico.real)
-
-    # 4. Crear la figura de Matplotlib
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(t, f_ejes["x"], label="Fuerza X (Lateral)", color="tab:blue", alpha=0.7)
-    ax.plot(t, f_ejes["y"], label="Fuerza Y (Vertical)", color="tab:orange", linewidth=2.5)
-    ax.plot(t, f_ejes["z"], label="Fuerza Z (Axial)", color="tab:green", alpha=0.7)
-    
-    ax.set_title(f"Análisis Temporal: Damper {d.nombre} a {rpm} RPM")
-    ax.set_xlabel("Tiempo [s]")
-    ax.set_ylabel("Fuerza Dinámica [N]")
-    ax.legend(loc='upper right')
-    ax.grid(True, linestyle='--', alpha=0.5)
-    plt.tight_layout()
-    
-    return fig
-
-
-
-def dibujar_modelo_2d(modelo, titulo="Disposición de Planta (Plano XZ)"):
-    fig, ax = plt.subplots(figsize=(8, 8))
-    
-    # 1. Obtener datos del modelo
-    p = modelo.dims
-    pos_p = modelo.componentes["placa"]["pos"]
-
-    # Calculamos el CG global para graficarlo
-    _, _, _, cg_global = modelo.armar_matrices()
-
-    # 2. Dibujar la Placa de Inercia (Rectángulo)
-    rect_placa = plt.Rectangle(
-        (pos_p[0] - p['x']/2, pos_p[2] - p['z']/2), 
-        p['x'], p['z'], 
-        linewidth=1.5, edgecolor='#333333', facecolor='lightgray', alpha=0.4, label='Placa Inercia'
-    )
-    ax.add_patch(rect_placa)
-
-    # 3. Dibujar el Cesto (Referencia circular)
-    radio_cesto = (modelo.excitacion.get('e_unbalance', 0.625)) # Radio basado en config
-    cesto_circ = plt.Circle((0, 0), radio_cesto, color='blue', fill=False, ls='--', alpha=0.5, label='Rotor/Cesto')
-    ax.add_patch(cesto_circ)
-
-    # 4. Dibujar Dampers (Puntos de apoyo)
-    for i, d in enumerate(modelo.dampers):
-        ax.scatter(d.pos[0], d.pos[2], marker='s', s=80, color='black', alpha=0.7, 
-                   label="Dampers (Apoyos)" if i==0 else "")
-        ax.text(d.pos[0], d.pos[2] + 0.08, d.nombre, fontsize=7, ha='center')
-
-    # 5. DIBUJAR ÚNICAMENTE EL CG GLOBAL
-    # Usamos una estrella dorada o roja para que sea el foco de atención
-    ax.scatter(cg_global[0], cg_global[2], marker='*', s=250, color='red', 
-               edgecolor='black', zorder=10, label='CG GLOBAL SISTEMA')
-    
-    # Etiqueta con coordenadas del CG
-    ax.text(cg_global[0] + 0.1, cg_global[2] + 0.1, 
-            f"CG ({cg_global[0]:.2f}, {cg_global[2]:.2f})", 
-            color='red', fontweight='bold', fontsize=9)
-
-    # 6. Punto de Giro (Origen 0,0)
-    ax.scatter(0, 0, marker='+', color='blue', s=100, label='Eje de Rotación')
-
-    # Configuración final
-    ax.set_aspect('equal')
-    ax.grid(True, linestyle=':', alpha=0.3)
-    ax.axhline(0, color='black', lw=0.5)
-    ax.axvline(0, color='black', lw=0.5)
-    ax.set_xlabel("Eje X [m]")
-    ax.set_ylabel("Eje Z [m]")
-    ax.set_title(titulo, pad=20)
-    ax.legend(loc='upper right', fontsize='small', frameon=True)
-    
-    return fig
-
-
-def generar_pdf(config_base, f_res, tabla_fuerzas, fig_planta, fig_vibraciones):
-    # Con fpdf2 no necesitas especificar 'Arial', usa 'helvetica' que es estándar
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 16)
-    
-    # Título
-    pdf.cell(0, 10, "Informe Tecnico de Vibraciones - Riera Nadeu", new_x="LMARGIN", new_y="NEXT", align="C")
-    pdf.ln(10)
-    
-    # --- GRÁFICO 1: DISPOSICIÓN ---
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "1. Disposicion Fisica del Sistema", new_x="LMARGIN", new_y="NEXT")
-    
-    img_buf = io.BytesIO()
-    fig_planta.savefig(img_buf, format='png', bbox_inches='tight')
-    img_buf.seek(0)
-    pdf.image(img_buf, x=10, w=100) # fpdf2 maneja el buffer automáticamente
-    pdf.ln(5)
-
-    # --- GRÁFICO 2: VIBRACIONES ---
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "2. Analisis de Vibraciones (Fuerza vs Tiempo)", new_x="LMARGIN", new_y="NEXT")
-    
-    img_buf_2 = io.BytesIO()
-    fig_vibraciones.savefig(img_buf_2, format='png', bbox_inches='tight')
-    img_buf_2.seek(0)
-    pdf.image(img_buf_2, x=10, w=180)
-
-    # --- TABLA DE FUERZAS ---
-    pdf.add_page()
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 10, "3. Reacciones en Apoyos", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("helvetica", "", 8)
-    
-    # Encabezados
-    pdf.cell(45, 7, "Damper", border=1)
-    pdf.cell(45, 7, "Carga Est. [N]", border=1)
-    pdf.cell(45, 7, "Carga Tot. Max [N]", border=1)
-    pdf.ln()
-    
-    for _, row in tabla_fuerzas.iterrows():
-        pdf.cell(45, 7, str(row["Damper"]), border=1)
-        pdf.cell(45, 7, str(row["Carga Estática [N]"]), border=1)
-        pdf.cell(45, 7, str(row["Carga TOTAL MÁX [N]"]), border=1)
-        pdf.ln()
-
-    # SOLUCIÓN AL ERROR: Simplemente output() sin encode
-    return pdf.output()
+import motor_fisico
 
 # ==========================================
 # 3️⃣ ENTORNO VISUAL (INTERFAZ)
@@ -505,9 +8,9 @@ def inicializar_estado_del_simulador():
     # --- INICIALIZADOR DE DATOS (Fuente de Verdad Única) ---
     if 'componentes_data' not in st.session_state:
         st.session_state.componentes_data = {
-            "bancada": {"m": 1000.0, "pos": [0.0, 0.0, 0.0], "I": [[1000.0, 0.0, 0.0], [0.0, 1000.0, 0.0], [0.0, 0.0, 1000.0]]},
-            "motor": {"m": 940.0, "pos": [1.6, 0.0, 1.1], "I": [[178.0, 0, 0], [0, 392.0, 0], [0, 0, 312.0]]},
-            "cesto": {"m": 1000.0, "pos": [0.0, 0.0, 0.0], "I": [[1000.0, 0.0, 0.0], [0.0, 1000.0, 0.0], [0.0, 0.0, 1000.0]]}
+            "bancada": {"m": 1.0, "pos": [0.0, 0.0, 0.0], "I": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]},
+            "motor": {"m": 1.0, "pos": [1.6, 0.0, 1.1], "I": [[1.0, 0, 0], [0, 1.0, 0], [0, 0, 1.0]]},
+            "cesto": {"m": 1.0, "pos": [0.0, 0.0, 0.0], "I": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]}
         }
     if 'placa_data' not in st.session_state:
             st.session_state.placa_data = {
@@ -518,7 +21,8 @@ def inicializar_estado_del_simulador():
         st.session_state.configuracion_sistema = {
             "distancia_eje": 0.0,
             "sensor_pos": [-0.4, 0.2, 0.0],
-            "diametro_cesto": 1250  # Valor por defecto (mm)
+            "diametro_cesto": 1250,  # Valor por defecto (mm),
+            "tipo_de_maquina": "vertical"  # Valor por defecto (mm)
         }
 
     if 'dampers_prop_data' not in st.session_state:
@@ -538,10 +42,35 @@ def inicializar_estado_del_simulador():
 # --- 1. INTERFAZ DE STREAMLIT ---
 st.set_page_config(layout="wide")
 
+# --- BARRA LATERAL PARA MODIFICAR VALORES ---
+
+# En la sección de configuración de la barra lateral
+st.sidebar.header("⚙️ Configuración de Simulación")
+usar_giroscopio = st.sidebar.checkbox("Incluir Efecto Giroscópico", value=False, help="Activa el acoplamiento entre los ejes Rx y Ry debido a la rotación del cesto.")
+iz_inicial = 1.0
+iz_input = st.sidebar.number_input(
+    "Inercia Polar Cesto (Iz) [kg·m²]", 
+    value=float(iz_inicial), 
+    min_value=0.0, 
+    step=0.1,
+    help="Momento de inercia del cesto sobre su eje de rotación. Influye en la estabilidad giroscópica.",
+    disabled=not usar_giroscopio # Se deshabilita si el efecto no está activo
+)
+
+st.sidebar.header("Parámetros de cálculos")
+
+# Ejemplo de cómo modificar la masa de desbalanceo y RPM
+m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
+rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
+
 # Llamamos a nuestra nueva función
 inicializar_estado_del_simulador()
 
-st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
+if tipo_de_maquina == "vertical":
+    st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
+else:
+    st.title("Simulador Interactivo de Centrífuga 700F - Departamento de Ingenieria de Riera Nadeu")
+
 st.info("""
 **Guía rápida de uso:**
 1. Ajusta la **Masa y RPM** en la barra lateral.
@@ -550,16 +79,6 @@ st.info("""
 4. Compara el diseño actual con una **Propuesta** usando los sliders inferiores de la barra lateral.
 """)
 st.markdown("Modifica los valores en la barra lateral para ver el impacto en las vibraciones.")
-
-# --- BARRA LATERAL PARA MODIFICAR VALORES ---
-st.sidebar.header("Parámetros de cálculos")
-
-
-# Ejemplo de cómo modificar la masa de desbalanceo y RPM
-m_unbalance = st.sidebar.slider("Masa de Desbalanceo (kg)", 0.1, 8.0, 1.6)
-rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
-
-
 
 # --- SECCIÓN: PESTAÑAS ---
 st.header("🧱 Configuración del Sistema")
@@ -570,7 +89,7 @@ tab_config, tab_comp, tab_dampers, = st.tabs([ "⚙️ Configuración del Sistem
 
 # 1️⃣ CONFIGURACION DE SISTEMA
 with tab_config:
-    st.subheader("Configuración de Soste,a")
+    st.subheader("Configuración de Sistema")
     st.warning("⚠️ **Orientación:** El eje **Y** es vertical (Gravedad). El **X** está orientado hacia el motor y el eje **Z** queda definido por regla de mano derecha.")
     # 1. Leemos del "log" (session_state) para establecer el valor inicial
     distancia_eje = st.number_input(
@@ -591,6 +110,12 @@ with tab_config:
         index=opciones_diametro.index(st.session_state.configuracion_sistema.get("diametro_cesto", 1250))
     )
 
+    tipo_de_maquina = st.selectbox(
+    "Tipo de máquina (eje de giro):", 
+    ["vertical", "horizontal"],
+    format_func=lambda x: x.capitalize() # Muestra "Vertical" / "Horizontal"
+    )
+
     # 3. Calculamos la excentricidad (Radio en metros)
     e_unbalance = (diametro_sel / 1000) / 2
 
@@ -609,10 +134,10 @@ with tab_config:
 
     st.divider()
 
-# Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
-st.session_state.configuracion_sistema["distancia_eje"] = distancia_eje
-st.session_state.configuracion_sistema["sensor_pos"] = [sensor_x, sensor_y, sensor_z] 
-st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
+    # Actualizamos los valores de sistema en el session_state con lo que hay actualmente en los widgets
+    st.session_state.configuracion_sistema["distancia_eje"] = distancia_eje
+    st.session_state.configuracion_sistema["sensor_pos"] = [sensor_x, sensor_y, sensor_z] 
+    st.session_state.configuracion_sistema["diametro_cesto"] = diametro_sel
 
 # 1️⃣ GESTIÓN DE COMPONENTES (Inercia 3x3 con Persistencia)
 with tab_comp:
@@ -658,7 +183,7 @@ with tab_comp:
 
 # 2. ✅ Datos de la Placa de Inercia
 with subtabs[3]:
-    st.write("### Parámetros Geométricos de la Placa")
+    st.write("### Parámetros Geométricos de la Placa (valido unicamente para Centrifugas de eje vertical)")
     col_g1, col_g2 = st.columns(2)
     
     with col_g1:
@@ -701,8 +226,6 @@ with subtabs[3]:
         "Dist_x": Dist_x,
         "Dist_z": Dist_z
     })
-
-
 
 # 2️⃣ GESTIÓN DE DAMPERS
 with tab_dampers:
@@ -778,7 +301,6 @@ with tab_dampers:
                 })
 
 
-
 # 3️⃣ ENSAMBLAJE FINAL (Cálculo Base)
 # Usamos las llaves del session_state para garantizar que, 
 # aunque el usuario no abra una pestaña, el simulador use el último dato guardado.
@@ -786,10 +308,10 @@ with tab_dampers:
 config_base = {
     "excitacion": {
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"], 
+        "tipo_de_maquina": st.session_state.configuracion_sistema["tipo_de_maquina"],
         "m_unbalance": m_unbalance, # Viene del slider de la sidebar
         "e_unbalance": e_unbalance # Valor constante de diseño
     },
-    "placa": st.session_state.placa_data,
     "componentes": st.session_state.componentes_data,
     "dampers": dampers_finales, # Lista ya procesada en la pestaña anterior
     "sensor": {
@@ -797,6 +319,11 @@ config_base = {
     },
     "tipos_dampers": pd.DataFrame(st.session_state.dampers_prop_data).set_index("Tipo").to_dict('index')
 }
+
+#Inyectamos la diferencia específica
+if tipo_de_maquina == "vertical":
+    config_base["placa"] = st.session_state.placa_data
+
 
 
 # --- SELECTOR DE DAMPER ---
@@ -808,35 +335,38 @@ seleccion = st.sidebar.selectbox("Selección de damper para diagnóstico:", opci
 # Extraemos el índice
 d_idx = int(seleccion.split(":")[0])
 
-# --- 2. INTERFAZ PARA LA PROPUESTA (Sliders) ---
-st.sidebar.header("Variaciones de la Propuesta")
-st.sidebar.write("👇 *Ajusta estos valores para ver la línea punteada en los gráficos:*")
-esp_prop = st.sidebar.slider("Espesor Propuesta [mm]", 40.0, 140.0, 100.0) / 1000
-pos_x_motor_prop = st.sidebar.slider("Posición X Motor Propuesta [m]", 1.2, 1.8, 1.6)
 
-
-# --- 3. CREAR CONFIGURACIÓN DINÁMICA ---
-config_prop = copy.deepcopy(config_base)
-config_prop["placa"]["espesor"] = esp_prop
-config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
-
-# --- 4. EJECUTAR AMBAS SIMULACIONES ---
+# --- 4. EJECUTAR SIMULACIONES ---
 modelo_base = SimuladorCentrifuga(config_base)
-modelo_prop = SimuladorCentrifuga(config_prop)
-
 f_res_rpm, modos = modelo_base.calcular_frecuencias_naturales()
-f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
 
-# RPM de operación
 rpm_range = np.linspace(10, rpm_obj*1.2, 1000)
 idx_op = np.argmin(np.abs(rpm_range - rpm_obj))
+
 rpm_range, D_desp, D_fuerza, acel_cg, vel_cg, S_desp, S_vel, S_acel, X_damper = ejecutar_barrido_rpm(modelo_base, rpm_range, d_idx)
-rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
+
+modelo_prop = None
+
+if tipo_de_maquina == "vertical":
+    # --- 2. INTERFAZ PARA LA PROPUESTA (Sliders) ---
+    st.sidebar.header("Variaciones de la Propuesta")
+    st.sidebar.write("👇 *Ajusta estos valores para ver la línea punteada en los gráficos:*")
+    esp_prop = st.sidebar.slider("Espesor Propuesta [mm]", 40.0, 140.0, 100.0) / 1000
+    pos_x_motor_prop = st.sidebar.slider("Posición X Motor Propuesta [m]", 1.2, 1.8, 1.6)
+
+    # --- 3. CREAR CONFIGURACIÓN DINÁMICA ---
+    config_prop = copy.deepcopy(config_base)
+    config_prop["placa"]["espesor"] = esp_prop
+    config_prop["componentes"]["motor"]["pos"][0] = pos_x_motor_prop
+
+    modelo_prop = SimuladorCentrifuga(config_prop)
+
+    f_res_rpm_prop, modos_prop = modelo_prop.calcular_frecuencias_naturales()
+    rpm_range, desp_prop, fuerza_prop, acel_prop, vel_prop, S_desp_prop, S_vel_prop, S_acel_prop, X_damper_prop = ejecutar_barrido_rpm(modelo_prop, rpm_range, d_idx)
+
 
 st.sidebar.divider()
 st.sidebar.subheader("📄 Reporte Oficial")
-
-
 
 
 # ==========================================
@@ -867,41 +397,43 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+if tipo_de_maquina == "vertical":
+    st.header("🗺️ Mapa de Disposición Física")
+    col_vista_base, col_vista_prop = st.columns(2)
+    with col_vista_base:
+        st.subheader("Configuración Base")
+        fig_base = dibujar_modelo_2d_vertical(modelo_base, "Planta: Configuración Base")
+        st.pyplot(fig_base)
+        
+        # Info de CG
+        _, _, _, cg_b = modelo_base.armar_matrices()
+        st.info(f"**CG Base:** X:{cg_b[0]:.2f}, Y:{cg_b[1]:.2f}, Z:{cg_b[2]:.2f}")
+
+    with col_vista_prop:
+        st.subheader("Configuración Propuesta")
+        fig_prop = dibujar_modelo_2d_vertical(modelo_prop, "Planta: Variación Propuesta")
+        st.pyplot(fig_prop)
+        
+        # Info de CG
+        _, _, _, cg_p = modelo_prop.armar_matrices()
+        st.success(f"**CG Propuesta:** X:{cg_p[0]:.2f}, Y:{cg_p[1]:.2f}, Z:{cg_p[2]:.2f}")
+
+    st.divider()
+
+if tipo_de_maquina == "horizontal":
+    st.subheader("🌐 Visualización 2D del Modelo")
+    # Asegúrate de que el modelo_base ya esté inicializado antes de llamar a dibujar_modelo_3d
+    fig_2d = dibujar_modelo_2d_horizontal(modelo_base)
+    st.plotly_chart(fig_2d, use_container_width=True)
 
 
-st.header("🗺️ Mapa de Disposición Física")
-
-col_vista_base, col_vista_prop = st.columns(2)
-
-with col_vista_base:
-    st.subheader("Configuración Base")
-    fig_base = dibujar_modelo_2d(modelo_base, "Planta: Configuración Base")
-    st.pyplot(fig_base)
-    
-    # Info de CG
-    _, _, _, cg_b = modelo_base.armar_matrices()
-    st.info(f"**CG Base:** X:{cg_b[0]:.2f}, Y:{cg_b[1]:.2f}, Z:{cg_b[2]:.2f}")
-
-with col_vista_prop:
-    st.subheader("Configuración Propuesta")
-    fig_prop = dibujar_modelo_2d(modelo_prop, "Planta: Variación Propuesta")
-    st.pyplot(fig_prop)
-    
-    # Info de CG
-    _, _, _, cg_p = modelo_prop.armar_matrices()
-    st.success(f"**CG Propuesta:** X:{cg_p[0]:.2f}, Y:{cg_p[1]:.2f}, Z:{cg_p[2]:.2f}")
-
-st.divider()
 st.subheader("⏱️ Respuesta Temporal de Fuerzas")
 st.info(f"Mostrando el comportamiento oscilatorio para el Damper seleccionado a {rpm_obj} RPM.")
-
 # 1. Creamos las filas de columnas (2 columnas por fila)
 fila1 = st.columns(2)
 fila2 = st.columns(2)
-
 # 2. Las unimos en una lista plana para iterar fácilmente
 columnas = fila1 + fila2 
-
 # 3. Iteramos sobre los 4 dampers (D1 a D4)
 for i, col in enumerate(columnas):
     with col:
@@ -916,12 +448,8 @@ for i, col in enumerate(columnas):
         # Mostramos en Streamlit
         st.pyplot(fig)
 
-
-
-
 st.subheader("📋 Resumen de Cargas por Apoyo")
 df_cargas = calcular_tabla_fuerzas(modelo_base, rpm_obj)
-
 if not df_cargas.empty:
     st.dataframe(
         df_cargas,
@@ -952,25 +480,25 @@ st.markdown("""
 """)
 
 # --- DEFINICIÓN DE EJES PARA GRÁFICOS (Pegar antes de los bucles for) ---
-eje_axial = "z"
-eje_vert_fisico = "y"  # P.ej: si eje es 'x', este es 'y'
-eje_horiz_fisico = "x" # P.ej: si eje es 'x', este es 'z'
+eje_horizontal_z = "z"
+eje_vertical = "y"  # P.ej: si eje es 'x', este es 'y'
+eje_horizontal_x = "x" # P.ej: si eje es 'x', este es 'z'
 
 # Creamos la lista para iterar en los gráficos
-orden_grafico = [eje_vert_fisico, eje_horiz_fisico, eje_axial]
+orden_grafico = [eje_vertical, eje_horizontal_x, eje_horizontal_z]
 
 # Diccionario de etiquetas para las leyendas
 ejes_lbl = {
-    eje_vert_fisico: f"({eje_vert_fisico.upper()})",
-    eje_horiz_fisico: f"({eje_horiz_fisico.upper()})",
-    eje_axial: f"({eje_axial.upper()})"
+    eje_vertical: f"({eje_vertical.upper()})",
+    eje_horizontal_x: f"({eje_horizontal_x.upper()})",
+    eje_horizontal_z: f"({eje_horizontal_z.upper()})"
 }
 
 # Diccionario de colores
 colores = {
-    eje_vert_fisico: "tab:orange", 
-    eje_horiz_fisico: "tab:blue", 
-    eje_axial: "tab:green"
+    eje_vertical: "tab:orange", 
+    eje_horizontal_x: "tab:blue", 
+    eje_horizontal_z: "tab:green"
 }
 
 
@@ -1046,10 +574,9 @@ for eje in orden_grafico:
 ax4.axvline(rpm_obj, color='black', linestyle=':', label=f'RPM operación ({rpm_obj})')
 # --- CORRECCIÓN DE LA ANOTACIÓN ---
 # Usamos el eje vertical físico (donde realmente hay carga dinámica)
-eje_v = eje_vert_fisico 
-f_max_op = D_fuerza[eje_v][idx_op]
+f_max_op = D_fuerza[eje_vertical][idx_op]
 ax4.annotate(
-    f'{f_max_op:.0f} N ({eje_v.upper()}) a {rpm_obj} RPM',
+    f'{f_max_op:.0f} N ({eje_vertical.upper()}) a {rpm_obj} RPM',
     xy=(rpm_range[idx_op], f_max_op),
     # Ajustamos xytext para que no se solape con la línea de la curva
     xytext=(rpm_range[idx_op] * 0.6, f_max_op * 1.15), 
@@ -1066,66 +593,65 @@ st.pyplot(fig4)
 
 
 
+if tipo_de_maquina == "vertical":
+    # Inserta esto antes de una sección nueva que quieras que empiece en hoja limpia
+    st.markdown('<div style="break-after:page"></div>', unsafe_allow_html=True)
+    st.title("Simulador de variaciones de parametros")
+    st.subheader("Comparativa de velocidad en el Sensor")
 
-# Inserta esto antes de una sección nueva que quieras que empiece en hoja limpia
-st.markdown('<div style="break-after:page"></div>', unsafe_allow_html=True)
-st.title("Simulador de variaciones de parametros")
-st.subheader("Comparativa de velocidad en el Sensor")
+    # ==========================
+    # 📊 GRÁFICO 5: Comparativa Fuerzas Dinámicas
+    # ==========================
+    fig5, ax5 = plt.subplots(figsize=(10, 4))
+    # --- CASO BASE (Líneas punteadas o grises) ---
+    ax5.plot(rpm_range, S_vel["x"], color="gray", linestyle="--", alpha=0.5, label="Base X")
+    ax5.plot(rpm_range, S_vel["y"], color="silver", linestyle="--", alpha=0.5, label="Base Y")
+    ax5.plot(rpm_range, S_vel["z"], color="black", linestyle="--", alpha=0.5, label="Base Z")
+    # --- PROPUESTA (Colores vivos) ---
+    ax5.plot(rpm_range, S_vel_prop["x"], color="tab:blue", label="Propuesta X")
+    ax5.plot(rpm_range, S_vel_prop["y"], color="tab:orange", label="Propuesta Y")
+    ax5.plot(rpm_range, S_vel_prop["z"], color="tab:green", label="Propuesta Z")
+    ax5.axvline(rpm_obj, color='black', linestyle=':', label=f'RPM operación ({rpm_obj})')
+    ax5.set_xlabel("RPM")
+    ax5.set_ylabel("velocidad [mm/s]")
+    ax5.legend()
+    ax5.grid(True, alpha=0.1)
+    st.pyplot(fig5)
 
+    # ==========================
+    # 📊 GRÁFICO 6: Comparativa Fuerzas Dinámicas
+    # ==========================
 
-# ==========================
-# 📊 GRÁFICO 5: Comparativa Fuerzas Dinámicas
-# ==========================
-fig5, ax5 = plt.subplots(figsize=(10, 4))
-# --- CASO BASE (Líneas punteadas o grises) ---
-ax5.plot(rpm_range, S_vel["x"], color="gray", linestyle="--", alpha=0.5, label="Base X")
-ax5.plot(rpm_range, S_vel["y"], color="silver", linestyle="--", alpha=0.5, label="Base Y")
-ax5.plot(rpm_range, S_vel["z"], color="black", linestyle="--", alpha=0.5, label="Base Z")
-# --- PROPUESTA (Colores vivos) ---
-ax5.plot(rpm_range, S_vel_prop["x"], color="tab:blue", label="Propuesta X")
-ax5.plot(rpm_range, S_vel_prop["y"], color="tab:orange", label="Propuesta Y")
-ax5.plot(rpm_range, S_vel_prop["z"], color="tab:green", label="Propuesta Z")
-ax5.axvline(rpm_obj, color='black', linestyle=':', label=f'RPM operación ({rpm_obj})')
-ax5.set_xlabel("RPM")
-ax5.set_ylabel("velocidad [mm/s]")
-ax5.legend()
-ax5.grid(True, alpha=0.1)
-st.pyplot(fig5)
+    st.subheader(f"Comparativa de fuerza vertical en el Damper {lista_dampers_config[d_idx]['tipo']}")
 
-# ==========================
-# 📊 GRÁFICO 6: Comparativa Fuerzas Dinámicas
-# ==========================
-
-st.subheader(f"Comparativa de fuerza vertical en el Damper {lista_dampers_config[d_idx]['tipo']}")
-
-fig6, ax6 = plt.subplots(figsize=(10, 4))
-# --- CASO BASE (Líneas punteadas o grises) ---
-ax6.plot(rpm_range, D_fuerza["y"], color="gray", linestyle="--", alpha=0.5, label="Base X")
-# --- PROPUESTA (Colores vivos) ---
-ax6.plot(rpm_range, fuerza_prop["y"], color="tab:blue", label="Propuesta X")
-Fy_orig_1100 = D_fuerza["y"][idx_op]
-Fy_prop_1100 = fuerza_prop["y"][idx_op]
-# --- Anotaciones ---
-plt.annotate(
-    f'{Fy_prop_1100:.0f} N',
-    xy=(rpm_obj, Fy_prop_1100),
-    xytext=(rpm_obj+80, Fy_prop_1100*1.25),
-    arrowprops=dict(arrowstyle='->', color='blue'),
-    color='blue'
-)
-plt.annotate(
-    f'{Fy_orig_1100:.0f} N',
-    xy=(rpm_obj, Fy_orig_1100),
-    xytext=(rpm_obj+80, Fy_orig_1100*0.85),
-    arrowprops=dict(arrowstyle='->', color='gray'),
-    color='gray'
-)
-ax6.axvline(rpm_obj, color='black', linestyle=':', label=f'RPM operación ({rpm_obj})')
-ax6.set_xlabel("RPM")
-ax6.set_ylabel("Fuerza [N]")
-ax6.legend()
-ax6.grid(True, alpha=0.1)
-st.pyplot(fig6)
+    fig6, ax6 = plt.subplots(figsize=(10, 4))
+    # --- CASO BASE (Líneas punteadas o grises) ---
+    ax6.plot(rpm_range, D_fuerza["y"], color="gray", linestyle="--", alpha=0.5, label="Base X")
+    # --- PROPUESTA (Colores vivos) ---
+    ax6.plot(rpm_range, fuerza_prop["y"], color="tab:blue", label="Propuesta X")
+    Fy_orig_1100 = D_fuerza["y"][idx_op]
+    Fy_prop_1100 = fuerza_prop["y"][idx_op]
+    # --- Anotaciones ---
+    plt.annotate(
+        f'{Fy_prop_1100:.0f} N',
+        xy=(rpm_obj, Fy_prop_1100),
+        xytext=(rpm_obj+80, Fy_prop_1100*1.25),
+        arrowprops=dict(arrowstyle='->', color='blue'),
+        color='blue'
+    )
+    plt.annotate(
+        f'{Fy_orig_1100:.0f} N',
+        xy=(rpm_obj, Fy_orig_1100),
+        xytext=(rpm_obj+80, Fy_orig_1100*0.85),
+        arrowprops=dict(arrowstyle='->', color='gray'),
+        color='gray'
+    )
+    ax6.axvline(rpm_obj, color='black', linestyle=':', label=f'RPM operación ({rpm_obj})')
+    ax6.set_xlabel("RPM")
+    ax6.set_ylabel("Fuerza [N]")
+    ax6.legend()
+    ax6.grid(True, alpha=0.1)
+    st.pyplot(fig6)
 
 
 
@@ -1152,7 +678,7 @@ st.header("Análisis de Seguridad y Vibraciones")
 
 # 1. Identificación de la Frecuencia Crítica (Resonancia)
 # Buscamos el pico máximo en el barrido de RPM
-idx_res_base = np.argmax(S_vel[eje_v])
+idx_res_base = np.argmax(S_vel[eje_vertical])
 rpm_res_base = rpm_range[idx_res_base]
 
 col_concl1, col_concl2 = st.columns(2)

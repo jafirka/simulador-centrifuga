@@ -68,9 +68,9 @@ rpm_obj = st.sidebar.number_input("RPM nominales", value=1100)
 
 tipo_de_maquina = st.session_state.configuracion_sistema["tipo_de_maquina"]
 if tipo_de_maquina == "vertical":
-    st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
+    st.title("Simulador Interactivo de Centrífuga de Eje Vertical - Departamento de Ingenieria de Riera Nadeu")
 if tipo_de_maquina == "horizontal":
-    st.title("Simulador Interactivo de Centrífuga 300F - Departamento de Ingenieria de Riera Nadeu")
+    st.title("Simulador Interactivo de Centrífuga de Eje Horizontal - Departamento de Ingenieria de Riera Nadeu")
 
 st.info("""
 **Guía rápida de uso:**

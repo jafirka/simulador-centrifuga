@@ -51,13 +51,22 @@ inicializar_estado_del_simulador()
 # En la sección de configuración de la barra lateral
 st.sidebar.header("⚙️ Configuración de Simulación")
 usar_giroscopio = st.sidebar.checkbox("Incluir Efecto Giroscópico", value=False, help="Activa el acoplamiento entre los ejes Rx y Ry debido a la rotación del cesto.")
+
+
+# --- BARRA LATERAL ---
+st.sidebar.header("⚙️ Configuración de Simulación")
+
+# 1. Asegúrate de que el nombre de la variable sea único y consistente
+usar_giroscopio = st.sidebar.checkbox("Incluir Efecto Giroscópico", value=False)
+
+# Usamos una variable clara: iz_manual
 i_producto = st.sidebar.number_input(
     "Inercia Polar Cesto (Iz) [kg·m²]", 
-    value=float(0.0), 
+    value=0.0, 
     min_value=0.0, 
     step=0.1,
-    help="Momento de inercia del cesto sobre su eje de rotación. Influye en la estabilidad giroscópica.",
-    disabled=not usar_giroscopio # Se deshabilita si el efecto no está activo
+    disabled=not usar_giroscopio,
+    key="input_iz_manual" # <--- Agregamos una KEY para persistencia
 )
 
 st.sidebar.header("Parámetros de cálculos")

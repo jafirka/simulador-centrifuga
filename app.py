@@ -316,7 +316,6 @@ with tab_dampers:
 config_base = {
     "excitacion": {
         "distancia_eje": st.session_state.configuracion_sistema["distancia_eje"], 
-        "tipo_de_maquina": st.session_state.configuracion_sistema["tipo_de_maquina"],
         "m_unbalance": m_unbalance, # Viene del slider de la sidebar
         "e_unbalance": e_unbalance # Valor constante de diseño
     },
@@ -325,7 +324,8 @@ config_base = {
     "sensor": {
         "pos_sensor": st.session_state.configuracion_sistema["sensor_pos"]
     },
-    "tipos_dampers": pd.DataFrame(st.session_state.dampers_prop_data).set_index("Tipo").to_dict('index')
+    "tipos_dampers": pd.DataFrame(st.session_state.dampers_prop_data).set_index("Tipo").to_dict('index'),
+    "tipo_de_maquina": st.session_state.configuracion_sistema["tipo_de_maquina"]
 }
 
 #Inyectamos la diferencia específica

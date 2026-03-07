@@ -266,7 +266,6 @@ def ejecutar_barrido_rpm(modelo, rpm_range, d_idx,usar_giroscopico=False, i_prod
                 G[3, 4] = val_g
                 G[4, 3] = -val_g
 
-        st.header(f"Valor de Inercia: {i_producto}")
         # Resolver el sistema: Z * X = F
         #Z = -w**2 * M + 1j*w * C + K
         Z = -w**2 * M + 1j * w * (C + G) + K

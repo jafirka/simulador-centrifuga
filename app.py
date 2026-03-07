@@ -48,11 +48,6 @@ inicializar_estado_del_simulador()
 
 # --- BARRA LATERAL PARA MODIFICAR VALORES ---
 
-# En la sección de configuración de la barra lateral
-st.sidebar.header("⚙️ Configuración de Simulación")
-usar_giroscopio = st.sidebar.checkbox("Incluir Efecto Giroscópico", value=False, help="Activa el acoplamiento entre los ejes Rx y Ry debido a la rotación del cesto.")
-
-
 # --- BARRA LATERAL ---
 st.sidebar.header("⚙️ Configuración de Simulación")
 
